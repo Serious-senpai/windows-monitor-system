@@ -112,8 +112,8 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let _ = aws_lc_rs::default_provider().install_default();
 
     let addr = SocketAddr::from(([0, 0, 0, 0], configuration.port));
-    let certs = _load_certs(&configuration.certificate)?;
-    let key = _load_private_key(&configuration.private_key)?;
+    let certs = _load_certs(&configuration.certificate).expect("Failed to load certificate");
+    let key = _load_private_key(&configuration.private_key).expect("Failed to load private key");
 
     let listener = TcpListener::bind(addr).await?;
     let mut cfg = ServerConfig::builder()

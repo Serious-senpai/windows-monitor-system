@@ -8,7 +8,7 @@ repository = "https://github.com/Serious-senpai/windows-monitor"
 license = "GPL-2.0-or-later"
 
 [dependencies]
-clap = { workspace = true }
+clap = { version = "^4.5.42", features = ["cargo", "derive"] }
 config-file = { workspace = true }
 log = { workspace = true }
 openssl = { workspace = true }

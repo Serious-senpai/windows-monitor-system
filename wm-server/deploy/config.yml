@@ -1,0 +1,4 @@
+port: 12110
+log_level: Trace
+certificate: cert/server.pem
+private_key: cert/server.rsa

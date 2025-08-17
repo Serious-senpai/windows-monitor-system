@@ -4,7 +4,6 @@ members = ["wm-client", "wm-common", "wm-server"]
 
 [workspace.dependencies]
 async-trait = "^0.1.88"
-clap = { version = "^4.5.42", features = ["cargo", "derive"] }
 config-file = { version = "^0.2.3", features = ["yaml"] }
 log = "^0.4.27"
 openssl = "^0.10.73"
