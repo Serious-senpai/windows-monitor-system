@@ -27,7 +27,7 @@ async fn _runner(
     let agent = Arc::new(Agent::new(configuration));
 
     let ptr = agent.clone();
-    let agent_handle = tokio::spawn(async move {
+    let mut agent_handle = tokio::spawn(async move {
         ptr.run().await;
     });
 
@@ -35,11 +35,12 @@ async fn _runner(
         _ = signal::ctrl_c() => {
             info!("Received Ctrl+C signal");
         },
-        _ = agent_handle => (),
+        _ = &mut agent_handle => (),
     };
 
     debug!("Stopping agent");
     agent.stop().await;
+    agent_handle.await?;
 
     if let Some(h) = handle {
         h.await??;
@@ -84,17 +85,22 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
             let scm = ServiceManager::new(SC_MANAGER_ALL_ACCESS)?;
             scm.create_service(
-                SERVICE_NAME,
+                &format!("{SERVICE_NAME}\0"),
                 &format!("{} start\0", executable_path.to_string_lossy()),
             )?;
+
+            info!("Done");
         }
         ServiceAction::Start => {
             debug!("Checking service {SERVICE_NAME}");
 
             let scm = ServiceManager::new(SC_MANAGER_ALL_ACCESS)?;
             let status = scm.query_service_status(SERVICE_NAME)?;
-            if status.current_state != ServiceState::Stopped {
-                Err(RuntimeError::new("Service must be stopped before starting"))?;
+            if status.current_state != ServiceState::StartPending {
+                Err(RuntimeError::new(format!(
+                    "Invalid state {:?}",
+                    status.current_state
+                )))?;
             }
 
             debug!("Starting service {SERVICE_NAME}");
@@ -112,6 +118,8 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
             let scm = ServiceManager::new(SC_MANAGER_ALL_ACCESS)?;
             scm.delete_service(SERVICE_NAME)?;
+
+            info!("Done");
         }
         ServiceAction::Process => {
             debug!("Running as a standalone process");

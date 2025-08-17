@@ -1,8 +1,11 @@
 use std::net::IpAddr;
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+use crate::sysinfo::SystemInfo;
+
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type", content = "data")]
 pub enum EventData {
     File {
@@ -44,7 +47,7 @@ pub enum EventData {
     },
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Event {
     pub guid: String,
     pub process_id: u32,
@@ -52,4 +55,10 @@ pub struct Event {
     pub event_id: u16,
     pub opcode: u8,
     pub data: EventData,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CapturedEventRecord {
+    pub event: Event,
+    pub system: Arc<SystemInfo>,
 }

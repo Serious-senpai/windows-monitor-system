@@ -3,18 +3,20 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use ferrisetw::trace::{KernelTrace, TraceTrait};
-use log::{debug, error};
-use tokio::sync::{Mutex, RwLock};
+use log::{debug, error, trace};
+use tokio::sync::{Mutex, RwLock, mpsc};
 use tokio::task;
 
 use crate::error::RuntimeError;
 use crate::module::Module;
+use crate::module::tracer::data::{CapturedEventRecord, Event};
 use crate::module::tracer::providers::ProviderWrapper;
 use crate::module::tracer::providers::file::FileProviderWrapper;
 use crate::module::tracer::providers::image::ImageProviderWrapper;
 use crate::module::tracer::providers::process::ProcessProviderWrapper;
 use crate::module::tracer::providers::tcpip::TcpIpProviderWrapper;
 use crate::module::tracer::providers::udpip::UdpIpProviderWrapper;
+use crate::sysinfo::SystemInfo;
 
 pub mod data;
 pub mod providers;
@@ -22,6 +24,20 @@ pub mod providers;
 pub struct EventTracer {
     _trace: RwLock<Option<KernelTrace>>,
     _running: Mutex<bool>,
+}
+
+impl EventTracer {
+    async fn _process_event(event: Event, buffer_length: usize) {
+        let record = CapturedEventRecord {
+            event,
+            system: SystemInfo::fetch().await,
+        };
+
+        trace!(
+            "({buffer_length} left) {}",
+            serde_json::to_string(&record).unwrap()
+        );
+    }
 }
 
 #[async_trait]
@@ -61,9 +77,22 @@ impl Module for EventTracer {
             // Add other providers here as needed
         ];
 
+        let (sender, mut receiver) = mpsc::unbounded_channel();
+        let process_handle = tokio::spawn(async move {
+            loop {
+                match receiver.recv().await {
+                    Some(event) => Self::_process_event(event, receiver.len()).await,
+                    None => break receiver,
+                }
+            }
+        });
+
         for wrapper in wrappers {
-            tracer = wrapper.attach(tracer);
+            tracer = wrapper.attach(tracer, sender.clone());
         }
+
+        // IMPORTANT: Drop sender here to avoid stagnation at `receiver.recv().await`
+        drop(sender);
 
         let (trace, handle) = tracer
             .start()
@@ -78,6 +107,11 @@ impl Module for EventTracer {
         task::spawn_blocking(move || KernelTrace::process_from_handle(handle))
             .await?
             .map_err(|e| RuntimeError::new(format!("Kernel trace error: {e:?}")))?;
+
+        receiver = process_handle
+            .await
+            .map_err(|e| RuntimeError::new(format!("Unable to reobtain receiver: {e:?}")))?;
+        receiver.close();
 
         debug!("EventTracer completed");
 
@@ -102,6 +136,7 @@ impl Module for EventTracer {
         }
 
         *running = false;
+        debug!("EventTracer stopped");
 
         Ok(())
     }

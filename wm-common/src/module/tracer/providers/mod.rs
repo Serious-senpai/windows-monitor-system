@@ -11,7 +11,8 @@ use ferrisetw::provider::Provider;
 use ferrisetw::provider::kernel_providers::KernelProvider;
 use ferrisetw::trace::{KernelTrace, TraceBuilder};
 use ferrisetw::{EventRecord, SchemaLocator};
-use log::{debug, error, trace};
+use log::{debug, error};
+use tokio::sync::mpsc;
 
 use crate::module::tracer::data::Event;
 
@@ -32,7 +33,11 @@ pub trait ProviderWrapper: Send + Sync {
         schema_locator: &SchemaLocator,
     ) -> Result<Event, Box<dyn Error + Send + Sync>>;
 
-    fn attach(self: Arc<Self>, trace: TraceBuilder<KernelTrace>) -> TraceBuilder<KernelTrace>
+    fn attach(
+        self: Arc<Self>,
+        trace: TraceBuilder<KernelTrace>,
+        sender: mpsc::UnboundedSender<Event>,
+    ) -> TraceBuilder<KernelTrace>
     where
         Self: 'static,
     {
@@ -45,10 +50,10 @@ pub trait ProviderWrapper: Send + Sync {
                 if ptr.clone().filter(record) {
                     match ptr.clone().callback(record, schema_locator) {
                         Ok(event) => {
-                            trace!("{}", serde_json::to_string(&event).unwrap());
+                            let _ = sender.send(event);
                         }
                         Err(e) => {
-                            error!("{e}");
+                            error!("Error when handling event from {:?}: {e}", provider.guid);
                         }
                     }
                 }
