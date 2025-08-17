@@ -1,0 +1,2 @@
+server: https://localhost:12110
+log_level: Trace

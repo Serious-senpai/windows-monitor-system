@@ -1,0 +1,42 @@
+[workspace]
+resolver = "2"
+members = ["wm-client", "wm-common", "wm-server"]
+
+[workspace.dependencies]
+async-trait = "^0.1.88"
+clap = { version = "^4.5.42", features = ["cargo", "derive"] }
+config-file = { version = "^0.2.3", features = ["yaml"] }
+log = "^0.4.27"
+openssl = "^0.10.73"
+serde = "^1.0.219"
+serde_json = "^1.0.142"
+tokio = { version = "^1.47.0", features = ["full"] }
+
+[workspace.lints.clippy]
+absolute_paths = "warn"
+assigning_clones = "warn"
+bool_to_int_with_if = "warn"
+branches_sharing_code = "warn"
+cast_lossless = "warn"
+cloned_instead_of_copied = "warn"
+collection_is_never_read = "warn"
+elidable_lifetime_names = "warn"
+empty_enum_variants_with_brackets = "warn"
+empty_structs_with_brackets = "warn"
+if_not_else = "warn"
+implicit_clone = "warn"
+inconsistent_struct_constructor = "warn"
+inefficient_to_string = "warn"
+manual_instant_elapsed = "warn"
+manual_string_new = "warn"
+map_unwrap_or = "warn"
+match_bool = "warn"
+match_same_arms = "warn"
+needless_collect = "warn"
+needless_continue = "warn"
+string_to_string = "warn"
+suboptimal_flops = "warn"
+too_many_arguments = "allow"
+trait_duplication_in_bounds = "warn"
+use_self = "warn"
+wildcard_imports = "warn"

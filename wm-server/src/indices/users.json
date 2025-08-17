@@ -1,0 +1,16 @@
+{
+    "mappings": {
+        "dynamic": "strict",
+        "properties": {
+            "username": {
+                "type": "keyword"
+            },
+            "hashed_password": {
+                "type": "binary"
+            },
+            "permission": {
+                "type": "long"
+            }
+        }
+    }
+}

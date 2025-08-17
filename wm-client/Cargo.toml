@@ -1,0 +1,23 @@
+[package]
+name = "wm-client"
+version = "0.1.0"
+authors = ["Serious-senpai"]
+edition = "2024"
+description = "Windows Monitor client component"
+repository = "https://github.com/Serious-senpai/windows-monitor"
+license = "GPL-2.0-or-later"
+
+[dependencies]
+clap = { workspace = true }
+config-file = { workspace = true }
+log = { workspace = true }
+openssl = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+url = { version = "^2.5.4", features = ["serde"] }
+windows-services = "^0.25.0"
+wm-common = { path = "../wm-common" }
+
+[lints]
+workspace = true

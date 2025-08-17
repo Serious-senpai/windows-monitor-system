@@ -1,0 +1,724 @@
+{
+    "index_patterns": [
+        "logs-endpoint.events.windows-monitor-*"
+    ],
+    "data_stream": {},
+    "priority": 1000,
+    "template": {
+        "mappings": {
+            "dynamic": "strict",
+            "properties": {
+                "@timestamp": {
+                    "type": "date"
+                },
+                "labels": {
+                    "type": "object"
+                },
+                "message": {
+                    "type": "match_only_text"
+                },
+                "tags": {
+                    "type": "keyword"
+                },
+                "client": {
+                    "dynamic": "strict",
+                    "properties": {
+                        "address": {
+                            "type": "keyword"
+                        },
+                        "bytes": {
+                            "type": "long"
+                        },
+                        "domain": {
+                            "type": "keyword"
+                        },
+                        "ip": {
+                            "type": "ip"
+                        },
+                        "mac": {
+                            "type": "keyword"
+                        },
+                        "nat": {
+                            "dynamic": "strict",
+                            "properties": {
+                                "ip": {
+                                    "type": "ip"
+                                },
+                                "port": {
+                                    "type": "long"
+                                }
+                            }
+                        },
+                        "packets": {
+                            "type": "long"
+                        },
+                        "port": {
+                            "type": "long"
+                        },
+                        "registered_domain": {
+                            "type": "keyword"
+                        },
+                        "subdomain": {
+                            "type": "keyword"
+                        },
+                        "top_level_domain": {
+                            "type": "keyword"
+                        }
+                    }
+                },
+                "destination": {
+                    "dynamic": "strict",
+                    "properties": {
+                        "address": {
+                            "type": "keyword"
+                        },
+                        "bytes": {
+                            "type": "long"
+                        },
+                        "domain": {
+                            "type": "keyword"
+                        },
+                        "ip": {
+                            "type": "ip"
+                        },
+                        "mac": {
+                            "type": "keyword"
+                        },
+                        "nat": {
+                            "dynamic": "strict",
+                            "properties": {
+                                "ip": {
+                                    "type": "ip"
+                                },
+                                "port": {
+                                    "type": "long"
+                                }
+                            }
+                        },
+                        "packets": {
+                            "type": "long"
+                        },
+                        "port": {
+                            "type": "long"
+                        },
+                        "registered_domain": {
+                            "type": "keyword"
+                        },
+                        "subdomain": {
+                            "type": "keyword"
+                        },
+                        "top_level_domain": {
+                            "type": "keyword"
+                        }
+                    }
+                },
+                "dll": {
+                    "dynamic": "strict",
+                    "properties": {
+                        "name": {
+                            "type": "keyword"
+                        },
+                        "path": {
+                            "type": "keyword"
+                        }
+                    }
+                },
+                "ecs": {
+                    "dynamic": "strict",
+                    "properties": {
+                        "version": {
+                            "type": "keyword"
+                        }
+                    }
+                },
+                "event": {
+                    "dynamic": "strict",
+                    "properties": {
+                        "action": {
+                            "type": "keyword"
+                        },
+                        "agent_id_status": {
+                            "type": "keyword"
+                        },
+                        "category": {
+                            "type": "keyword"
+                        },
+                        "code": {
+                            "type": "keyword"
+                        },
+                        "created": {
+                            "type": "date"
+                        },
+                        "dataset": {
+                            "type": "keyword"
+                        },
+                        "duration": {
+                            "type": "long"
+                        },
+                        "end": {
+                            "type": "date"
+                        },
+                        "hash": {
+                            "type": "keyword"
+                        },
+                        "id": {
+                            "type": "keyword"
+                        },
+                        "ingested": {
+                            "type": "date"
+                        },
+                        "kind": {
+                            "type": "keyword"
+                        },
+                        "module": {
+                            "type": "keyword"
+                        },
+                        "original": {
+                            "type": "keyword"
+                        },
+                        "outcome": {
+                            "type": "keyword"
+                        },
+                        "provider": {
+                            "type": "keyword"
+                        },
+                        "reason": {
+                            "type": "keyword"
+                        },
+                        "reference": {
+                            "type": "keyword"
+                        },
+                        "risk_score": {
+                            "type": "float"
+                        },
+                        "risk_score_norm": {
+                            "type": "float"
+                        },
+                        "sequence": {
+                            "type": "long"
+                        },
+                        "severity": {
+                            "type": "long"
+                        },
+                        "start": {
+                            "type": "date"
+                        },
+                        "timezone": {
+                            "type": "keyword"
+                        },
+                        "type": {
+                            "type": "keyword"
+                        },
+                        "url": {
+                            "type": "keyword"
+                        }
+                    }
+                },
+                "file": {
+                    "dynamic": "strict",
+                    "properties": {
+                        "accessed": {
+                            "type": "date"
+                        },
+                        "attributes": {
+                            "type": "keyword"
+                        },
+                        "created": {
+                            "type": "date"
+                        },
+                        "ctime": {
+                            "type": "date"
+                        },
+                        "device": {
+                            "type": "keyword"
+                        },
+                        "directory": {
+                            "type": "keyword"
+                        },
+                        "drive_letter": {
+                            "type": "keyword"
+                        },
+                        "extension": {
+                            "type": "keyword"
+                        },
+                        "fork_name": {
+                            "type": "keyword"
+                        },
+                        "gid": {
+                            "type": "keyword"
+                        },
+                        "group": {
+                            "type": "keyword"
+                        },
+                        "inode": {
+                            "type": "keyword"
+                        },
+                        "mime_type": {
+                            "type": "keyword"
+                        },
+                        "mode": {
+                            "type": "keyword"
+                        },
+                        "mtime": {
+                            "type": "date"
+                        },
+                        "name": {
+                            "type": "keyword"
+                        },
+                        "origin_referrer_url": {
+                            "type": "keyword"
+                        },
+                        "origin_url": {
+                            "type": "keyword"
+                        },
+                        "owner": {
+                            "type": "keyword"
+                        },
+                        "path": {
+                            "type": "keyword",
+                            "fields": {
+                                "text": {
+                                    "type": "match_only_text"
+                                }
+                            }
+                        },
+                        "size": {
+                            "type": "long"
+                        },
+                        "target_path": {
+                            "type": "keyword",
+                            "fields": {
+                                "text": {
+                                    "type": "match_only_text"
+                                }
+                            }
+                        },
+                        "type": {
+                            "type": "keyword"
+                        },
+                        "uid": {
+                            "type": "keyword"
+                        }
+                    }
+                },
+                "host": {
+                    "dynamic": "strict",
+                    "properties": {
+                        "architecture": {
+                            "type": "keyword"
+                        },
+                        "boot": {
+                            "dynamic": "strict",
+                            "properties": {
+                                "id": {
+                                    "type": "keyword"
+                                }
+                            }
+                        },
+                        "cpu": {
+                            "dynamic": "strict",
+                            "properties": {
+                                "usage": {
+                                    "type": "scaled_float",
+                                    "scaling_factor": 1000
+                                }
+                            }
+                        },
+                        "disk": {
+                            "dynamic": "strict",
+                            "properties": {
+                                "read": {
+                                    "dynamic": "strict",
+                                    "properties": {
+                                        "bytes": {
+                                            "type": "long"
+                                        }
+                                    }
+                                },
+                                "write": {
+                                    "dynamic": "strict",
+                                    "properties": {
+                                        "bytes": {
+                                            "type": "long"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "domain": {
+                            "type": "keyword"
+                        },
+                        "hostname": {
+                            "type": "keyword"
+                        },
+                        "id": {
+                            "type": "keyword"
+                        },
+                        "ip": {
+                            "type": "ip"
+                        },
+                        "mac": {
+                            "type": "keyword"
+                        },
+                        "name": {
+                            "type": "keyword"
+                        },
+                        "network": {
+                            "dynamic": "strict",
+                            "properties": {
+                                "egress": {
+                                    "dynamic": "strict",
+                                    "properties": {
+                                        "bytes": {
+                                            "type": "long"
+                                        },
+                                        "packets": {
+                                            "type": "long"
+                                        }
+                                    }
+                                },
+                                "ingress": {
+                                    "dynamic": "strict",
+                                    "properties": {
+                                        "bytes": {
+                                            "type": "long"
+                                        },
+                                        "packets": {
+                                            "type": "long"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "os": {
+                            "dynamic": "strict",
+                            "properties": {
+                                "family": {
+                                    "type": "keyword"
+                                },
+                                "full": {
+                                    "type": "keyword",
+                                    "fields": {
+                                        "text": {
+                                            "type": "match_only_text"
+                                        }
+                                    }
+                                },
+                                "kernel": {
+                                    "type": "keyword"
+                                },
+                                "name": {
+                                    "type": "keyword",
+                                    "fields": {
+                                        "text": {
+                                            "type": "match_only_text"
+                                        }
+                                    }
+                                },
+                                "platform": {
+                                    "type": "keyword"
+                                },
+                                "type": {
+                                    "type": "keyword"
+                                },
+                                "version": {
+                                    "type": "keyword"
+                                }
+                            }
+                        },
+                        "pid_ns_ino": {
+                            "type": "keyword"
+                        },
+                        "type": {
+                            "type": "keyword"
+                        },
+                        "uptime": {
+                            "type": "long"
+                        }
+                    }
+                },
+                "os": {
+                    "dynamic": "strict",
+                    "properties": {
+                        "family": {
+                            "type": "keyword"
+                        },
+                        "full": {
+                            "type": "keyword",
+                            "fields": {
+                                "text": {
+                                    "type": "match_only_text"
+                                }
+                            }
+                        },
+                        "kernel": {
+                            "type": "keyword"
+                        },
+                        "name": {
+                            "type": "keyword",
+                            "fields": {
+                                "text": {
+                                    "type": "match_only_text"
+                                }
+                            }
+                        },
+                        "platform": {
+                            "type": "keyword"
+                        },
+                        "type": {
+                            "type": "keyword"
+                        },
+                        "version": {
+                            "type": "keyword"
+                        }
+                    }
+                },
+                "process": {
+                    "dynamic": "strict",
+                    "properties": {
+                        "args": {
+                            "type": "keyword"
+                        },
+                        "args_count": {
+                            "type": "long"
+                        },
+                        "command_line": {
+                            "type": "wildcard",
+                            "fields": {
+                                "text": {
+                                    "type": "match_only_text"
+                                }
+                            }
+                        },
+                        "end": {
+                            "type": "date"
+                        },
+                        "entity_id": {
+                            "type": "keyword"
+                        },
+                        "env_vars": {
+                            "type": "keyword"
+                        },
+                        "executable": {
+                            "type": "keyword",
+                            "fields": {
+                                "text": {
+                                    "type": "match_only_text"
+                                }
+                            }
+                        },
+                        "exit_code": {
+                            "type": "long"
+                        },
+                        "interactive": {
+                            "type": "boolean"
+                        },
+                        "io": {
+                            "dynamic": "strict",
+                            "properties": {
+                                "bytes_skipped": {
+                                    "dynamic": "strict",
+                                    "properties": {
+                                        "length": {
+                                            "type": "long"
+                                        },
+                                        "offset": {
+                                            "type": "long"
+                                        }
+                                    }
+                                },
+                                "max_bytes_per_process_exceeded": {
+                                    "type": "boolean"
+                                },
+                                "text": {
+                                    "type": "wildcard"
+                                },
+                                "total_bytes_captured": {
+                                    "type": "long"
+                                },
+                                "total_bytes_skipped": {
+                                    "type": "long"
+                                },
+                                "type": {
+                                    "type": "keyword"
+                                }
+                            }
+                        },
+                        "name": {
+                            "type": "keyword",
+                            "fields": {
+                                "text": {
+                                    "type": "match_only_text"
+                                }
+                            }
+                        },
+                        "pid": {
+                            "type": "long"
+                        },
+                        "start": {
+                            "type": "date"
+                        },
+                        "thread": {
+                            "dynamic": "strict",
+                            "properties": {
+                                "capabilities": {
+                                    "dynamic": "strict",
+                                    "properties": {
+                                        "effective": {
+                                            "type": "keyword"
+                                        },
+                                        "permitted": {
+                                            "type": "keyword"
+                                        }
+                                    }
+                                },
+                                "id": {
+                                    "type": "long"
+                                },
+                                "name": {
+                                    "type": "keyword"
+                                }
+                            }
+                        },
+                        "title": {
+                            "type": "keyword",
+                            "fields": {
+                                "text": {
+                                    "type": "match_only_text"
+                                }
+                            }
+                        },
+                        "tty": {
+                            "dynamic": "strict",
+                            "properties": {
+                                "char_device": {
+                                    "dynamic": "strict",
+                                    "properties": {
+                                        "major": {
+                                            "type": "long"
+                                        },
+                                        "minor": {
+                                            "type": "long"
+                                        }
+                                    }
+                                },
+                                "columns": {
+                                    "type": "long"
+                                },
+                                "rows": {
+                                    "type": "long"
+                                }
+                            }
+                        },
+                        "uptime": {
+                            "type": "long"
+                        },
+                        "vpid": {
+                            "type": "long"
+                        },
+                        "working_directory": {
+                            "type": "keyword",
+                            "fields": {
+                                "text": {
+                                    "type": "match_only_text"
+                                }
+                            }
+                        }
+                    }
+                },
+                "server": {
+                    "dynamic": "strict",
+                    "properties": {
+                        "address": {
+                            "type": "keyword"
+                        },
+                        "bytes": {
+                            "type": "long"
+                        },
+                        "domain": {
+                            "type": "keyword"
+                        },
+                        "ip": {
+                            "type": "ip"
+                        },
+                        "mac": {
+                            "type": "keyword"
+                        },
+                        "nat": {
+                            "dynamic": "strict",
+                            "properties": {
+                                "ip": {
+                                    "type": "ip"
+                                },
+                                "port": {
+                                    "type": "long"
+                                }
+                            }
+                        },
+                        "packets": {
+                            "type": "long"
+                        },
+                        "port": {
+                            "type": "long"
+                        },
+                        "registered_domain": {
+                            "type": "keyword"
+                        },
+                        "subdomain": {
+                            "type": "keyword"
+                        },
+                        "top_level_domain": {
+                            "type": "keyword"
+                        }
+                    }
+                },
+                "source": {
+                    "dynamic": "strict",
+                    "properties": {
+                        "address": {
+                            "type": "keyword"
+                        },
+                        "bytes": {
+                            "type": "long"
+                        },
+                        "domain": {
+                            "type": "keyword"
+                        },
+                        "ip": {
+                            "type": "ip"
+                        },
+                        "mac": {
+                            "type": "keyword"
+                        },
+                        "nat": {
+                            "dynamic": "strict",
+                            "properties": {
+                                "ip": {
+                                    "type": "ip"
+                                },
+                                "port": {
+                                    "type": "long"
+                                }
+                            }
+                        },
+                        "packets": {
+                            "type": "long"
+                        },
+                        "port": {
+                            "type": "long"
+                        },
+                        "registered_domain": {
+                            "type": "keyword"
+                        },
+                        "subdomain": {
+                            "type": "keyword"
+                        },
+                        "top_level_domain": {
+                            "type": "keyword"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

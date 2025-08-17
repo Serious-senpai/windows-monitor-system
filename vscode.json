@@ -1,0 +1,15 @@
+{
+    "editor.formatOnSave": true,
+    "editor.tabSize": 4,
+    "extensions.ignoreRecommendations": false,
+    "git.autorefresh": true,
+    "rust-analyzer.linkedProjects": [
+        "${workspaceFolder}/Cargo.toml"
+    ],
+    "rust-analyzer.rustfmt.extraArgs": [
+        "+nightly"
+    ],
+    "[github-actions-workflow]": {
+        "editor.tabSize": 2
+    }
+}
