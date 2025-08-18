@@ -55,7 +55,11 @@ impl SystemInfo {
 
             trace!("Updating system info");
             let mut system = _SYSTEM
-                .get_or_init(async || Mutex::new(System::new_all()))
+                .get_or_init(async || {
+                    let state = Mutex::new(System::new_all());
+                    sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL).await;
+                    state
+                })
                 .await
                 .lock()
                 .await;
