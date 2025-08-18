@@ -14,7 +14,7 @@ use ferrisetw::{EventRecord, SchemaLocator};
 use log::{debug, error};
 use tokio::sync::mpsc;
 
-use crate::module::tracer::data::Event;
+use wm_common::schema::Event;
 
 pub trait ProviderWrapper: Send + Sync {
     fn new() -> Self

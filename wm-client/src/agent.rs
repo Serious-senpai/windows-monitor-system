@@ -1,22 +1,25 @@
 use std::sync::Arc;
 
 use log::{error, info};
-use tokio::sync::RwLock;
 
 use crate::configuration::Configuration;
+use crate::http::HttpClient;
 use crate::module::Module;
 use crate::module::tracer::EventTracer;
 
 pub struct Agent {
     _config: Arc<Configuration>,
-    _modules: Vec<Arc<RwLock<dyn Module>>>,
+    _modules: Vec<Arc<dyn Module>>,
+    _http: Arc<HttpClient>,
 }
 
 impl Agent {
     pub fn new(config: Arc<Configuration>) -> Self {
+        let http = Arc::new(HttpClient::new(&config));
         Self {
-            _config: config,
-            _modules: vec![Arc::new(RwLock::new(EventTracer::new()))],
+            _config: config.clone(),
+            _modules: vec![Arc::new(EventTracer::new(config, http.clone()))],
+            _http: http,
         }
     }
 
@@ -31,9 +34,8 @@ impl Agent {
             let ptr = module.clone();
 
             let task = tokio::spawn(async move {
-                let ptr_owned = ptr.read_owned().await;
-                if let Err(e) = ptr_owned.run().await {
-                    error!("Module {} completed with error: {e}", ptr_owned.name());
+                if let Err(e) = ptr.clone().run().await {
+                    error!("Module {} completed with error: {e}", ptr.name());
                 }
             });
 
@@ -51,9 +53,8 @@ impl Agent {
 
     pub async fn stop(&self) {
         for module in &self._modules {
-            let ptr_owned = module.read().await;
-            if let Err(e) = ptr_owned.stop().await {
-                error!("Module {} stopped with error: {e}", ptr_owned.name());
+            if let Err(e) = module.clone().stop().await {
+                error!("Module {} stopped with error: {e}", module.name());
             }
         }
     }

@@ -8,7 +8,7 @@ use ferrisetw::{EventRecord, GUID, SchemaLocator};
 use windows::Win32::System::Diagnostics::Etw::EVENT_TRACE_FLAG_NETWORK_TCPIP;
 use wm_common::error::RuntimeError;
 
-use crate::module::tracer::data::{Event, EventData};
+use wm_common::schema::{Event, EventData};
 use crate::module::tracer::providers::ProviderWrapper;
 
 const _PROVIDER: KernelProvider = KernelProvider::new(

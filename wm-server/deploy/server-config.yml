@@ -1,4 +1,4 @@
 port: 12110
-log_level: Trace
+log_level: Debug
 certificate: cert/server.pem
 private_key: cert/server.rsa

@@ -2,7 +2,8 @@ use std::net::IpAddr;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
-use wm_common::sysinfo::SystemInfo;
+
+use crate::sysinfo::SystemInfo;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type", content = "data")]

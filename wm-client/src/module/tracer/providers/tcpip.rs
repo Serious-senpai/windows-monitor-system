@@ -7,7 +7,7 @@ use ferrisetw::provider::kernel_providers::{KernelProvider, TCP_IP_PROVIDER};
 use ferrisetw::{EventRecord, SchemaLocator};
 use wm_common::error::RuntimeError;
 
-use crate::module::tracer::data::{Event, EventData};
+use wm_common::schema::{Event, EventData};
 use crate::module::tracer::providers::ProviderWrapper;
 
 pub struct TcpIpProviderWrapper;
