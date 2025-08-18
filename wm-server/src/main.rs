@@ -80,7 +80,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .expect("Failed to get application directory")
         .to_path_buf();
 
-    let configuration = Configuration::from_config_file(app_directory.join("config.yml"))
+    let configuration = Configuration::from_config_file(app_directory.join("server-config.yml"))
         .expect("Failed to load configuration");
 
     let log_directory = app_directory.join("logs");

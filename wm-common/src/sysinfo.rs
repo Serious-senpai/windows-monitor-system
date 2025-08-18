@@ -2,6 +2,7 @@ use std::env::consts::OS;
 use std::sync::Arc;
 use std::time::Duration;
 
+use log::trace;
 use serde::{Deserialize, Serialize};
 use sysinfo::System;
 use tokio::sync::{Mutex, OnceCell};
@@ -52,6 +53,7 @@ impl SystemInfo {
                 return info.clone();
             }
 
+            trace!("Updating system info");
             let mut system = _SYSTEM
                 .get_or_init(async || Mutex::new(System::new_all()))
                 .await

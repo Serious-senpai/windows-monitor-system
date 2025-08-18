@@ -8,12 +8,12 @@ use wm_common::module::tracer::EventTracer;
 use crate::configuration::Configuration;
 
 pub struct Agent {
-    _config: Configuration,
+    _config: Arc<Configuration>,
     _modules: Vec<Arc<RwLock<dyn Module>>>,
 }
 
 impl Agent {
-    pub fn new(config: Configuration) -> Self {
+    pub fn new(config: Arc<Configuration>) -> Self {
         Self {
             _config: config,
             _modules: vec![Arc::new(RwLock::new(EventTracer::new()))],

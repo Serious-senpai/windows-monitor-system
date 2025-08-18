@@ -31,12 +31,10 @@ impl EventTracer {
         let record = CapturedEventRecord {
             event,
             system: SystemInfo::fetch().await,
+            buffer_length,
         };
 
-        trace!(
-            "({buffer_length} left) {}",
-            serde_json::to_string(&record).unwrap()
-        );
+        trace!("{}", serde_json::to_string(&record).unwrap());
     }
 }
 
