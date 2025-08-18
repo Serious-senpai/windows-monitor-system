@@ -6,8 +6,9 @@ use ferrisetw::trace::{KernelTrace, TraceTrait};
 use log::{debug, error, trace};
 use tokio::sync::{Mutex, RwLock, mpsc};
 use tokio::task;
+use wm_common::error::RuntimeError;
+use wm_common::sysinfo::SystemInfo;
 
-use crate::error::RuntimeError;
 use crate::module::Module;
 use crate::module::tracer::data::{CapturedEventRecord, Event};
 use crate::module::tracer::providers::ProviderWrapper;
@@ -16,7 +17,6 @@ use crate::module::tracer::providers::image::ImageProviderWrapper;
 use crate::module::tracer::providers::process::ProcessProviderWrapper;
 use crate::module::tracer::providers::tcpip::TcpIpProviderWrapper;
 use crate::module::tracer::providers::udpip::UdpIpProviderWrapper;
-use crate::sysinfo::SystemInfo;
 
 pub mod data;
 pub mod providers;

@@ -2814,13 +2814,16 @@ dependencies = [
 name = "wm-client"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "clap",
  "config-file",
+ "ferrisetw",
  "log",
  "serde",
  "serde_json",
  "tokio",
  "url",
+ "windows 0.60.0",
  "windows-service-detector",
  "windows-services",
  "wm-common",
@@ -2830,7 +2833,6 @@ dependencies = [
 name = "wm-common"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "ferrisetw",
  "log",
  "serde",

@@ -45,7 +45,7 @@ static _SYSTEM: OnceCell<Mutex<System>> = OnceCell::const_new();
 static _SYSTEM_INFO: Mutex<Option<Arc<SystemInfo>>> = Mutex::const_new(None);
 
 impl SystemInfo {
-    pub async fn fetch() -> Arc<SystemInfo> {
+    pub async fn fetch() -> Arc<Self> {
         let system_info = {
             let mut info = _SYSTEM_INFO.lock().await;
             if let Some(info) = info.as_ref() {
@@ -88,7 +88,7 @@ impl SystemInfo {
                 })
                 .collect();
 
-            let created = Arc::new(SystemInfo { os, memory, cpus });
+            let created = Arc::new(Self { os, memory, cpus });
             *info = Some(created.clone());
             created
         };

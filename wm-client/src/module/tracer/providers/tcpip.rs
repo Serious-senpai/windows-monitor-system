@@ -3,27 +3,16 @@ use std::net::IpAddr;
 use std::sync::Arc;
 
 use ferrisetw::parser::Parser;
-use ferrisetw::provider::kernel_providers::KernelProvider;
-use ferrisetw::{EventRecord, GUID, SchemaLocator};
-use windows::Win32::System::Diagnostics::Etw::EVENT_TRACE_FLAG_NETWORK_TCPIP;
+use ferrisetw::provider::kernel_providers::{KernelProvider, TCP_IP_PROVIDER};
+use ferrisetw::{EventRecord, SchemaLocator};
+use wm_common::error::RuntimeError;
 
-use crate::error::RuntimeError;
 use crate::module::tracer::data::{Event, EventData};
 use crate::module::tracer::providers::ProviderWrapper;
 
-const _PROVIDER: KernelProvider = KernelProvider::new(
-    GUID::from_values(
-        0xbf3a50c5,
-        0xa9c9,
-        0x4988,
-        [0xa0, 0x05, 0x2d, 0xf0, 0xb7, 0xc8, 0x0f, 0x80],
-    ),
-    EVENT_TRACE_FLAG_NETWORK_TCPIP.0,
-);
+pub struct TcpIpProviderWrapper;
 
-pub struct UdpIpProviderWrapper;
-
-impl ProviderWrapper for UdpIpProviderWrapper {
+impl ProviderWrapper for TcpIpProviderWrapper {
     fn new() -> Self
     where
         Self: Sized,
@@ -32,11 +21,11 @@ impl ProviderWrapper for UdpIpProviderWrapper {
     }
 
     fn provider(self: Arc<Self>) -> &'static KernelProvider {
-        &_PROVIDER
+        &TCP_IP_PROVIDER
     }
 
     fn filter(self: Arc<Self>, record: &EventRecord) -> bool {
-        record.opcode() == 10 || record.opcode() == 11
+        record.opcode() == 12 || record.opcode() == 13 || record.opcode() == 15
     }
 
     fn callback(
@@ -70,7 +59,7 @@ impl ProviderWrapper for UdpIpProviderWrapper {
                     thread_id: record.thread_id(),
                     event_id: record.event_id(),
                     opcode: record.opcode(),
-                    data: EventData::UdpIp {
+                    data: EventData::TcpIp {
                         pid,
                         size,
                         daddr,

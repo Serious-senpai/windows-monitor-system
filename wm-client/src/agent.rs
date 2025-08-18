@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use log::{error, info};
 use tokio::sync::RwLock;
-use wm_common::module::Module;
-use wm_common::module::tracer::EventTracer;
 
 use crate::configuration::Configuration;
+use crate::module::Module;
+use crate::module::tracer::EventTracer;
 
 pub struct Agent {
     _config: Arc<Configuration>,

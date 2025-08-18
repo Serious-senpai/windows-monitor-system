@@ -2,16 +2,27 @@ use std::error::Error;
 use std::sync::Arc;
 
 use ferrisetw::parser::{Parser, Pointer};
-use ferrisetw::provider::kernel_providers::{IMAGE_LOAD_PROVIDER, KernelProvider};
-use ferrisetw::{EventRecord, SchemaLocator};
+use ferrisetw::provider::kernel_providers::KernelProvider;
+use ferrisetw::{EventRecord, GUID, SchemaLocator};
+use windows::Win32::System::Diagnostics::Etw::EVENT_TRACE_FLAG_DISK_FILE_IO;
+use wm_common::error::RuntimeError;
 
-use crate::error::RuntimeError;
 use crate::module::tracer::data::{Event, EventData};
 use crate::module::tracer::providers::ProviderWrapper;
 
-pub struct ImageProviderWrapper;
+const _PROVIDER: KernelProvider = KernelProvider::new(
+    GUID::from_values(
+        0x90cbdc39,
+        0x4a3e,
+        0x11d1,
+        [0x84, 0xf4, 0x00, 0x00, 0xf8, 0x04, 0x64, 0xe3],
+    ),
+    EVENT_TRACE_FLAG_DISK_FILE_IO.0,
+);
 
-impl ProviderWrapper for ImageProviderWrapper {
+pub struct FileProviderWrapper;
+
+impl ProviderWrapper for FileProviderWrapper {
     fn new() -> Self
     where
         Self: Sized,
@@ -20,11 +31,11 @@ impl ProviderWrapper for ImageProviderWrapper {
     }
 
     fn provider(self: Arc<Self>) -> &'static KernelProvider {
-        &IMAGE_LOAD_PROVIDER
+        &_PROVIDER
     }
 
     fn filter(self: Arc<Self>, record: &EventRecord) -> bool {
-        record.opcode() == 2 || record.opcode() == 10
+        record.opcode() == 0 || record.opcode() == 32 || record.opcode() == 35
     }
 
     fn callback(
@@ -35,17 +46,8 @@ impl ProviderWrapper for ImageProviderWrapper {
         match schema_locator.event_schema(record) {
             Ok(schema) => {
                 let parser = Parser::create(record, &schema);
-                let image_base = parser
-                    .try_parse::<Pointer>("ImageBase")
-                    .map_err(RuntimeError::from)?;
-                let image_size = parser
-                    .try_parse::<Pointer>("ImageSize")
-                    .map_err(RuntimeError::from)?;
-                let process_id = parser
-                    .try_parse::<u32>("ProcessId")
-                    .map_err(RuntimeError::from)?;
-                let image_checksum = parser
-                    .try_parse::<u32>("ImageChecksum")
+                let file_object = parser
+                    .try_parse::<Pointer>("FileObject")
                     .map_err(RuntimeError::from)?;
                 let file_name = parser
                     .try_parse::<String>("FileName")
@@ -53,15 +55,12 @@ impl ProviderWrapper for ImageProviderWrapper {
 
                 Ok(Event {
                     guid: format!("{:?}", record.provider_id()),
-                    process_id,
+                    process_id: record.process_id(),
                     thread_id: record.thread_id(),
                     event_id: record.event_id(),
                     opcode: record.opcode(),
-                    data: EventData::Image {
-                        image_base: *image_base,
-                        image_size: *image_size,
-                        process_id,
-                        image_checksum,
+                    data: EventData::File {
+                        file_object: *file_object,
                         file_name,
                     },
                 })

@@ -8,13 +8,16 @@ repository = "https://github.com/Serious-senpai/windows-monitor"
 license = "GPL-2.0-or-later"
 
 [dependencies]
+async-trait = { workspace = true }
 clap = { version = "^4.5.42", features = ["cargo", "derive"] }
 config-file = { workspace = true }
+ferrisetw = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 url = { version = "^2.5.4", features = ["serde"] }
+windows = { workspace = true }
 windows-service-detector = "^0.1.0"
 windows-services = "^0.25.0"
 wm-common = { path = "../wm-common" }

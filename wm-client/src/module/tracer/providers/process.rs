@@ -4,8 +4,8 @@ use std::sync::Arc;
 use ferrisetw::parser::{Parser, Pointer};
 use ferrisetw::provider::kernel_providers::{KernelProvider, PROCESS_PROVIDER};
 use ferrisetw::{EventRecord, SchemaLocator};
+use wm_common::error::RuntimeError;
 
-use crate::error::RuntimeError;
 use crate::module::tracer::data::{Event, EventData};
 use crate::module::tracer::providers::ProviderWrapper;
 
