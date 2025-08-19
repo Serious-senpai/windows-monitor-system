@@ -8,12 +8,12 @@ use clap::Parser;
 use config_file::FromConfigFile;
 use log::{debug, error, info};
 use tokio::fs;
+use windows::Win32::System::Services::SC_MANAGER_ALL_ACCESS;
 use wm_client::cli::{Arguments, ServiceAction};
 use wm_client::configuration::Configuration;
 use wm_client::runner::AgentRunner;
 use wm_common::error::RuntimeError;
 use wm_common::logger::initialize_logger;
-use wm_common::service::SC_MANAGER_ALL_ACCESS;
 use wm_common::service::service_manager::ServiceManager;
 use wm_common::service::status::ServiceState;
 
