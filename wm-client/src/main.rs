@@ -1,24 +1,24 @@
-use std::env;
 use std::error::Error;
 use std::fs::File;
+use std::io::Write;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::{env, io};
 
 use clap::Parser;
 use config_file::FromConfigFile;
 use log::{debug, info};
-use tokio::fs;
+use tokio::{fs, task};
 use windows::Win32::System::Services::SC_MANAGER_ALL_ACCESS;
-use wm_client::authenticator::AgentAuthenticator;
 use wm_client::cli::{Arguments, ServiceAction};
 use wm_client::configuration::Configuration;
 use wm_client::runner::AgentRunner;
+use wm_client::{SERVICE_NAME, WCM_NAME};
+use wm_common::credential::CredentialManager;
 use wm_common::error::RuntimeError;
 use wm_common::logger::initialize_logger;
 use wm_common::service::service_manager::ServiceManager;
 use wm_common::service::status::ServiceState;
-
-const SERVICE_NAME: &str = "Windows Monitor Agent Service";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -95,10 +95,19 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
             info!("Done");
         }
-        ServiceAction::Authenticate => {
-            let authenticator = AgentAuthenticator::new(configuration.clone());
-            authenticator.run().await;
-        }
+        ServiceAction::Password => task::spawn_blocking(|| {
+            let mut stdout = io::stdout();
+            print!("Password (hidden)>");
+            let _ = stdout.flush();
+
+            let password = rpassword::read_password().expect("Unable to read password");
+            CredentialManager::write(&mut format!("{WCM_NAME}\0"), password.as_bytes())
+                .expect("Failed to store password");
+
+            info!("Password stored to Windows Credential Manager");
+        })
+        .await
+        .expect("Unable to read password"),
     };
 
     Ok(())

@@ -55,15 +55,15 @@ pub struct HttpClient {
 }
 
 impl HttpClient {
-    pub fn new(configuration: &Configuration) -> Self {
+    pub fn new(configuration: &Configuration, password: &str) -> Self {
         let mut builder = reqwest::Client::builder()
             .add_root_certificate(
                 Certificate::from_pem(include_bytes!("../../cert/server.pem"))
                     .expect("Failed to load server certificate"),
             )
             .identity(
-                Identity::from_pkcs12_der(include_bytes!("../../cert/client.pfx"), "password")
-                    .expect("Unable to load client identity"),
+                Identity::from_pkcs12_der(include_bytes!("../../cert/client.pfx"), password)
+                    .expect("Failed to load client identity"),
             )
             .timeout(Duration::from_secs(10));
 
