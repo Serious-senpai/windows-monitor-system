@@ -17,5 +17,4 @@ pub enum ServiceAction {
     Create,
     Start,
     Delete,
-    Process,
 }

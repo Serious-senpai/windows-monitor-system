@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use clap::Parser;
 use config_file::FromConfigFile;
-use log::{debug, error, info};
+use log::{debug, info};
 use tokio::fs;
 use windows::Win32::System::Services::SC_MANAGER_ALL_ACCESS;
 use wm_client::cli::{Arguments, ServiceAction};
@@ -53,7 +53,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     match arguments.action {
         ServiceAction::Create => {
-            debug!("Creating new service {SERVICE_NAME}");
+            info!("Creating new service {SERVICE_NAME}");
 
             let scm = ServiceManager::new(SC_MANAGER_ALL_ACCESS)?;
             scm.create_service(
@@ -65,7 +65,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         }
         ServiceAction::Start => {
             if windows_service_detector::is_running_as_windows_service() == Ok(true) {
-                debug!("Checking service {SERVICE_NAME}");
+                info!("Checking service {SERVICE_NAME}");
 
                 let scm = ServiceManager::new(SC_MANAGER_ALL_ACCESS)?;
                 let status = scm.query_service_status(&format!("{SERVICE_NAME}\0"))?;
@@ -76,26 +76,23 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                     )))?;
                 }
 
-                debug!("Starting service {SERVICE_NAME}");
+                info!("Starting service {SERVICE_NAME}");
                 let mut runner = AgentRunner::new::<true>(configuration.clone());
                 runner.run().await?;
             } else {
-                error!("This command can only be run as a Windows service");
+                info!("Running as a standalone process");
+
+                let mut runner = AgentRunner::new::<false>(configuration.clone());
+                runner.run().await?;
             }
         }
         ServiceAction::Delete => {
-            debug!("Deleting service {SERVICE_NAME}");
+            info!("Deleting service {SERVICE_NAME}");
 
             let scm = ServiceManager::new(SC_MANAGER_ALL_ACCESS)?;
             scm.delete_service(&format!("{SERVICE_NAME}\0"))?;
 
             info!("Done");
-        }
-        ServiceAction::Process => {
-            debug!("Running as a standalone process");
-
-            let mut runner = AgentRunner::new::<false>(configuration.clone());
-            runner.run().await?;
         }
     };
 

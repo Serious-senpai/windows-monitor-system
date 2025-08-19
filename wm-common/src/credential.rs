@@ -14,7 +14,7 @@ pub struct CredentialManager;
 
 impl CredentialManager {
     pub fn read(name: &str) -> Result<Vec<u8>, WindowsError> {
-        let mut ptr: *mut CREDENTIALA = ptr::null_mut();
+        let mut ptr = ptr::null_mut();
         unsafe {
             CredReadA(
                 PCSTR::from_raw(name.as_ptr()),
