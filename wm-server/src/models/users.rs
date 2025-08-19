@@ -1,9 +1,10 @@
 use std::error::Error;
-use std::io;
+use std::sync::Arc;
 
 use elasticsearch::SearchParts;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use wm_common::error::RuntimeError;
 
 use crate::elastic::ElasticsearchWrapper;
 use crate::utils;
@@ -16,10 +17,12 @@ pub struct User {
 }
 
 impl User {
-    pub async fn query(username: &str) -> Result<Option<Self>, Box<dyn Error + Send + Sync>> {
-        let elastic = ElasticsearchWrapper::singleton().await?;
+    pub async fn query(
+        elastic: Arc<ElasticsearchWrapper>,
+        username: &str,
+    ) -> Result<Option<Self>, Box<dyn Error + Send + Sync>> {
         let response = elastic
-            .client
+            .client()
             .search(SearchParts::Index(&["users.windows-monitor"]))
             .body(json!({
                 "query": {
@@ -35,7 +38,7 @@ impl User {
 
         let hits = response_body["hits"]["hits"]
             .as_array()
-            .ok_or_else(|| io::Error::other("Invalid response from Elasticsearch"))?;
+            .ok_or_else(|| RuntimeError::new("Invalid response from Elasticsearch"))?;
 
         if hits.len() == 1 {
             let user = serde_json::from_value(hits[0]["_source"].clone())?;
@@ -43,13 +46,14 @@ impl User {
         } else if hits.is_empty() {
             Ok(None)
         } else {
-            Err(io::Error::other(
+            Err(RuntimeError::new(
                 "Multiple users found with the same username",
             ))?
         }
     }
 
     pub async fn create(
+        elastic: Arc<ElasticsearchWrapper>,
         username: &str,
         password: &str,
         permission: i64,
@@ -60,9 +64,8 @@ impl User {
             permission,
         };
 
-        let elastic = ElasticsearchWrapper::singleton().await?;
         let response = elastic
-            .client
+            .client()
             .index(elasticsearch::IndexParts::IndexId(
                 "users.windows-monitor",
                 username,
@@ -75,7 +78,7 @@ impl User {
             Ok(user)
         } else {
             let text = response.text().await?;
-            Err(io::Error::other(text))?
+            Err(RuntimeError::new(text))?
         }
     }
 }

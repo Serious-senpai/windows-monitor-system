@@ -1,13 +1,16 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use http_body_util::BodyExt;
 use http_body_util::combinators::BoxBody;
 use hyper::body::{Bytes, Incoming};
-use hyper::{Method, Request, Response};
+use hyper::{Method, Request, Response, StatusCode};
 use log::info;
 use wm_common::schema::CapturedEventRecord;
 
+use crate::app::App;
+use crate::responses::ResponseBuilder;
 use crate::routes::abc::Service;
-use crate::utils;
 
 pub struct TraceService;
 
@@ -17,7 +20,11 @@ impl Service for TraceService {
         "/trace"
     }
 
-    async fn serve(&self, request: Request<Incoming>) -> Response<BoxBody<Bytes, hyper::Error>> {
+    async fn serve(
+        &self,
+        _: Arc<App>,
+        request: Request<Incoming>,
+    ) -> Response<BoxBody<Bytes, hyper::Error>> {
         if request.method() == Method::POST {
             if let Ok(body) = request.into_body().collect().await
                 && let Ok(data) = serde_json::from_str::<CapturedEventRecord>(
@@ -25,12 +32,12 @@ impl Service for TraceService {
                 )
             {
                 info!("Received {data:?}");
-                return utils::ok_no_content();
+                return ResponseBuilder::empty(StatusCode::NO_CONTENT);
             }
 
-            utils::bad_request()
+            ResponseBuilder::default(StatusCode::BAD_REQUEST)
         } else {
-            utils::method_not_allowed()
+            ResponseBuilder::default(StatusCode::METHOD_NOT_ALLOWED)
         }
     }
 }

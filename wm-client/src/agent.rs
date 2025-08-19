@@ -1,6 +1,8 @@
+use std::io::{self, Write};
 use std::sync::Arc;
 
-use log::{error, info};
+use log::{debug, error, info};
+use tokio::task;
 
 use crate::configuration::Configuration;
 use crate::http::HttpClient;
@@ -20,6 +22,63 @@ impl Agent {
             _config: config.clone(),
             _modules: vec![Arc::new(EventTracer::new(config, http.clone()))],
             _http: http,
+        }
+    }
+
+    pub async fn authenticate(&self) {
+        info!("Authenticating with server {}", self._config.server);
+
+        let (username, password) = match task::spawn_blocking(|| {
+            let mut stdout = io::stdout();
+            let stdin = io::stdin();
+
+            print!("Username>");
+            let _ = stdout.flush();
+
+            let mut username = String::new();
+            let _ = stdin.read_line(&mut username);
+            username = username.trim().to_string();
+
+            print!("Password (hidden)>");
+            let _ = stdout.flush();
+
+            let password = rpassword::read_password().expect("Unable to read password");
+            (username, password)
+        })
+        .await
+        {
+            Ok(p) => p,
+            Err(e) => {
+                error!("Failed to read credentials: {e}");
+                return;
+            }
+        };
+
+        let response = match self
+            ._http
+            .api()
+            .post("/login")
+            .basic_auth(username, Some(password))
+            .send()
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                error!("Failed to send authentication request: {e}");
+                return;
+            }
+        };
+
+        debug!("Authentication response: {response:?}");
+
+        if response.status().is_success() {
+            info!("HTTP {}", response.status());
+        } else {
+            error!(
+                "HTTP {}: {}",
+                response.status(),
+                response.text().await.unwrap_or_else(|e| e.to_string())
+            );
         }
     }
 

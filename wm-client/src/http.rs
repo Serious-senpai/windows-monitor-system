@@ -1,12 +1,56 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use reqwest::Certificate;
+use log::debug;
+use reqwest::{Certificate, Identity};
+use url::Url;
 
 use crate::configuration::Configuration;
 
 #[derive(Debug)]
+pub struct ApiClient {
+    _base_url: Url,
+    _client: reqwest::Client,
+}
+
+impl ApiClient {
+    pub fn get(&self, endpoint: &str) -> reqwest::RequestBuilder {
+        self.request(reqwest::Method::GET, endpoint)
+    }
+
+    pub fn post(&self, endpoint: &str) -> reqwest::RequestBuilder {
+        self.request(reqwest::Method::POST, endpoint)
+    }
+
+    pub fn put(&self, endpoint: &str) -> reqwest::RequestBuilder {
+        self.request(reqwest::Method::PUT, endpoint)
+    }
+
+    pub fn patch(&self, endpoint: &str) -> reqwest::RequestBuilder {
+        self.request(reqwest::Method::PATCH, endpoint)
+    }
+
+    pub fn delete(&self, endpoint: &str) -> reqwest::RequestBuilder {
+        self.request(reqwest::Method::DELETE, endpoint)
+    }
+
+    pub fn head(&self, endpoint: &str) -> reqwest::RequestBuilder {
+        self.request(reqwest::Method::HEAD, endpoint)
+    }
+
+    pub fn request(&self, method: reqwest::Method, endpoint: &str) -> reqwest::RequestBuilder {
+        let url = self
+            ._base_url
+            .join(endpoint)
+            .unwrap_or_else(|_| panic!("Failed to construct URL to {endpoint}"));
+        debug!("Building HTTP {method} request to {url}");
+        self._client.request(method, url)
+    }
+}
+
+#[derive(Debug)]
 pub struct HttpClient {
+    _api: ApiClient,
     _client: reqwest::Client,
 }
 
@@ -17,15 +61,29 @@ impl HttpClient {
                 Certificate::from_pem(include_bytes!("../../cert/server.pem"))
                     .expect("Failed to load server certificate"),
             )
+            .identity(
+                Identity::from_pkcs12_der(include_bytes!("../../cert/client.pfx"), "password")
+                    .expect("Unable to load client identity"),
+            )
             .timeout(Duration::from_secs(10));
 
         for (domain, ip) in &configuration.dns_resolver {
             builder = builder.resolve(domain, SocketAddr::new(*ip, 0));
         }
 
+        let client = builder.build().expect("Failed to create HTTP client");
+
         Self {
-            _client: builder.build().expect("Failed to create HTTP client"),
+            _api: ApiClient {
+                _base_url: configuration.server.clone(),
+                _client: client.clone(),
+            },
+            _client: client,
         }
+    }
+
+    pub fn api(&self) -> &ApiClient {
+        &self._api
     }
 
     pub fn client(&self) -> &reqwest::Client {

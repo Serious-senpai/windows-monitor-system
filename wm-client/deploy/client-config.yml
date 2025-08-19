@@ -1,4 +1,4 @@
 server: https://localhost:12110
 log_level: Trace
 dns_resolver:
-  localhost: 172.0.0.1
+  localhost: 127.0.0.1

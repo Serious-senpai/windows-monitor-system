@@ -9,6 +9,7 @@ use config_file::FromConfigFile;
 use log::{debug, info};
 use tokio::fs;
 use windows::Win32::System::Services::SC_MANAGER_ALL_ACCESS;
+use wm_client::authenticator::AgentAuthenticator;
 use wm_client::cli::{Arguments, ServiceAction};
 use wm_client::configuration::Configuration;
 use wm_client::runner::AgentRunner;
@@ -93,6 +94,10 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             scm.delete_service(&format!("{SERVICE_NAME}\0"))?;
 
             info!("Done");
+        }
+        ServiceAction::Authenticate => {
+            let authenticator = AgentAuthenticator::new(configuration.clone());
+            authenticator.run().await;
         }
     };
 

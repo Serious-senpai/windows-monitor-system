@@ -17,4 +17,5 @@ pub enum ServiceAction {
     Create,
     Start,
     Delete,
+    Authenticate,
 }

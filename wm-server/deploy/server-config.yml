@@ -2,3 +2,8 @@ port: 12110
 log_level: Debug
 certificate: cert/server.pem
 private_key: cert/server.rsa
+
+elasticsearch:
+  host: http://localhost:9200
+  username: elastic
+  password: elastic-password

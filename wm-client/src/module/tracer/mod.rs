@@ -39,11 +39,11 @@ impl EventTracer {
 
         trace!("{}", serde_json::to_string(&record).unwrap());
         // Send the record to the configured server
-        let client = self._http.client();
-        let server_url = self._configuration.server.join("/trace").unwrap();
-        if let Err(e) = client.post(server_url).json(&record).send().await {
-            error!("Failed to send trace event to server: {e}");
-        }
+        // let client = self._http.client();
+        // let server_url = self._configuration.server.join("/trace").unwrap();
+        // if let Err(e) = client.post(server_url).json(&record).send().await {
+        //     error!("Failed to send trace event to server: {e}");
+        // }
     }
 
     fn _trace_builder(sender: mpsc::UnboundedSender<Event>) -> TraceBuilder<KernelTrace> {
