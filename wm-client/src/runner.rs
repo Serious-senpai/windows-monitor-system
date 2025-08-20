@@ -50,7 +50,7 @@ impl AgentRunner {
 
     pub async fn run(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
         let password = Agent::read_password(&self._configuration).await;
-        let agent = Arc::new(Agent::new(self._configuration.clone(), &password));
+        let agent = Arc::new(Agent::new(self._configuration.clone(), &password).await);
 
         let ptr = agent.clone();
         let mut agent_handle = tokio::spawn(async move {

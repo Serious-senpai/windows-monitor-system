@@ -15,11 +15,11 @@ pub struct Agent {
 }
 
 impl Agent {
-    pub fn new(config: Arc<Configuration>, password: &str) -> Self {
+    pub async fn new(config: Arc<Configuration>, password: &str) -> Self {
         let http = Arc::new(HttpClient::new(&config, password));
         Self {
             _config: config.clone(),
-            _modules: vec![Arc::new(EventTracer::new(config, http.clone()))],
+            _modules: vec![Arc::new(EventTracer::new(config, http.clone()).await)],
             _http: http,
         }
     }

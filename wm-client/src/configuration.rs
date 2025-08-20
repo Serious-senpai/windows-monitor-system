@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::net::IpAddr;
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -12,6 +13,7 @@ pub struct Configuration {
     pub server: Url,
     pub events_per_request: usize,
     pub zstd_compression_level: i32,
+    pub backup_directory: PathBuf,
     pub log_level: LogLevel,
     pub dns_resolver: HashMap<String, IpAddr>,
 }

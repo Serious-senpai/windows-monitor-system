@@ -33,7 +33,11 @@ impl Service for TraceService {
                     &String::from_utf8_lossy(&decompressed),
                 )
             {
-                info!("Received {data:?}");
+                info!(
+                    "Received {} uncompressed bytes of trace data ({} events)",
+                    decompressed.len(),
+                    data.len()
+                );
                 return ResponseBuilder::empty(StatusCode::NO_CONTENT);
             }
 

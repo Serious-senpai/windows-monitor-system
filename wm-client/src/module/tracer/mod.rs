@@ -2,15 +2,21 @@ pub mod providers;
 
 use std::collections::VecDeque;
 use std::error::Error;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
 use ferrisetw::trace::{KernelTrace, TraceBuilder, TraceTrait};
 use log::{debug, error, trace};
+use reqwest::Body;
+use tokio::fs;
+use tokio::fs::{File, OpenOptions};
+use tokio::io::AsyncWriteExt;
 use tokio::sync::{Mutex, RwLock, Semaphore, mpsc};
 use tokio::task::{self, JoinHandle};
 use tokio::time::timeout;
+use tokio_util::io::ReaderStream;
 use wm_common::error::RuntimeError;
 use wm_common::schema::{CapturedEventRecord, Event};
 use wm_common::sysinfo::SystemInfo;
@@ -32,20 +38,86 @@ pub struct EventTracer {
     _trace: RwLock<Option<KernelTrace>>,
     _running: Mutex<bool>,
     _http_semaphore: Semaphore,
+    _backup: Mutex<File>,
+    _send_previous_backup: JoinHandle<()>,
 }
 
 impl EventTracer {
-    pub fn new(configuration: Arc<Configuration>, http: Arc<HttpClient>) -> Self
+    pub async fn new(configuration: Arc<Configuration>, http: Arc<HttpClient>) -> Self
     where
         Self: Sized,
     {
+        let _ = fs::create_dir_all(&configuration.backup_directory).await;
+
+        let mut index = 0;
+        while Self::_get_log_file_path(configuration.clone(), index).exists() {
+            index += 1;
+            if index == 1000 {
+                panic!("Too many backup files");
+            }
+        }
+
+        let backup_path = Self::_get_log_file_path(configuration.clone(), index);
+        let backup = File::create(&backup_path)
+            .await
+            .expect("Failed to create backup file");
+
+        let configuration_cloned = configuration.clone();
+        let http_cloned = http.clone();
+        let send_previous_backup = tokio::spawn(async move {
+            match fs::read_dir(&configuration_cloned.backup_directory).await {
+                Ok(mut reader) => {
+                    while let Ok(Some(entry)) = reader.next_entry().await {
+                        let path = entry.path();
+                        if path == backup_path {
+                            continue; // Skip the current backup file
+                        }
+
+                        match OpenOptions::new().read(true).open(&path).await {
+                            Ok(file) => {
+                                if let Err(e) = http_cloned
+                                    .api()
+                                    .post("/backup")
+                                    .body(Body::wrap_stream(ReaderStream::new(file)))
+                                    .send()
+                                    .await
+                                {
+                                    error!(
+                                        "Failed to send backup {} to server: {e:?}",
+                                        path.display()
+                                    );
+                                } else {
+                                    let _ = fs::remove_file(&path);
+                                }
+                            }
+                            Err(e) => {
+                                error!("Failed to read backup file {}: {e}", path.display());
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!("Failed to read backup directory: {e}");
+                    return;
+                }
+            }
+        });
+
         Self {
             _configuration: configuration,
             _http: http,
             _trace: RwLock::new(None),
             _running: Mutex::new(false),
             _http_semaphore: Semaphore::new(5),
+            _backup: Mutex::new(backup),
+            _send_previous_backup: send_previous_backup,
         }
+    }
+
+    fn _get_log_file_path(configuration: Arc<Configuration>, index: i32) -> PathBuf {
+        configuration
+            .backup_directory
+            .join(format!("backup-{index}.jsonl"))
     }
 
     fn _trace_builder(sender: mpsc::UnboundedSender<Event>) -> TraceBuilder<KernelTrace> {
@@ -76,7 +148,7 @@ impl EventTracer {
     ) -> Option<JoinHandle<()>> {
         let events_to_send = events.drain(..).collect::<Vec<CapturedEventRecord>>();
         match serde_json::to_vec(&events_to_send) {
-            Ok(data) => {
+            Ok(mut data) => {
                 let before = data.len();
                 match compress(&data, self._configuration.zstd_compression_level) {
                     Ok(compressed) => Some(tokio::spawn(async move {
@@ -94,7 +166,16 @@ impl EventTracer {
                                 .send()
                                 .await
                             {
-                                error!("Failed to send trace event to server: {e}");
+                                error!(
+                                    "Failed to send trace event to server: {e:?}, writing to backup instead"
+                                );
+
+                                let mut backup = self._backup.lock().await;
+
+                                data.push(b'\n'); // Ensure each event is on a new line
+                                if let Err(e) = backup.write(&data).await {
+                                    error!("Failed to backup data: {e}");
+                                }
                             }
                         }
                     })),
@@ -209,6 +290,7 @@ impl Module for EventTracer {
 
         *running = false;
         self._http_semaphore.close();
+        self._send_previous_backup.abort();
         debug!("EventTracer stopped");
 
         Ok(())
