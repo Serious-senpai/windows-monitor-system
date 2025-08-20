@@ -67,7 +67,7 @@ impl AgentRunner {
             }
         };
 
-        debug!("Stopping agent");
+        info!("Stopping agent");
         agent.stop().await;
         agent_handle.await?;
 

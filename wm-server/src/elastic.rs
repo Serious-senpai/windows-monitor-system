@@ -4,9 +4,7 @@ use elasticsearch::Elasticsearch;
 use elasticsearch::auth::Credentials;
 use elasticsearch::http::response::Response;
 use elasticsearch::http::transport::Transport;
-use elasticsearch::indices::{
-    IndicesCreateDataStreamParts, IndicesCreateParts, IndicesPutIndexTemplateParts,
-};
+use elasticsearch::indices::IndicesPutIndexTemplateParts;
 use log::{debug, warn};
 use serde::Serialize;
 
@@ -32,21 +30,6 @@ async fn _log_error(r: Response) -> bool {
     }
 }
 
-async fn _create_index(
-    elastic: &Elasticsearch,
-    name: &str,
-    body: impl Serialize,
-) -> Result<bool, Box<dyn Error + Send + Sync>> {
-    let response = elastic
-        .indices()
-        .create(IndicesCreateParts::Index(name))
-        .body(body)
-        .send()
-        .await?;
-
-    Ok(_log_error(response).await)
-}
-
 async fn _put_index_template(
     elastic: &Elasticsearch,
     name: &str,
@@ -55,36 +38,6 @@ async fn _put_index_template(
     let response = elastic
         .indices()
         .put_index_template(IndicesPutIndexTemplateParts::Name(name))
-        .body(body)
-        .send()
-        .await?;
-
-    Ok(_log_error(response).await)
-}
-
-async fn _create_data_stream(
-    elastic: &Elasticsearch,
-    name: &str,
-    body: impl Serialize,
-) -> Result<bool, Box<dyn Error + Send + Sync>> {
-    let response = elastic
-        .indices()
-        .create_data_stream(IndicesCreateDataStreamParts::Name(name))
-        .body(body)
-        .send()
-        .await?;
-
-    Ok(_log_error(response).await)
-}
-
-async fn _create_document(
-    elastic: &Elasticsearch,
-    index: &str,
-    id: &str,
-    body: impl Serialize,
-) -> Result<bool, Box<dyn Error + Send + Sync>> {
-    let response = elastic
-        .index(elasticsearch::IndexParts::IndexId(index, id))
         .body(body)
         .send()
         .await?;

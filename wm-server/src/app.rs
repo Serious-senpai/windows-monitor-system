@@ -120,7 +120,7 @@ impl App {
         loop {
             tokio::select! {
                 _ = signal::ctrl_c() => {
-                    info!("Received Ctrl+C");
+                    info!("Received Ctrl+C signal");
                     break;
                 }
                 Ok((stream, _)) = listener.accept() => {

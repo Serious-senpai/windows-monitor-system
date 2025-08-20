@@ -7,6 +7,7 @@ use hyper::body::{Bytes, Incoming};
 use hyper::{Method, Request, Response, StatusCode};
 use log::info;
 use wm_common::schema::CapturedEventRecord;
+use zstd::bulk::decompress;
 
 use crate::app::App;
 use crate::responses::ResponseBuilder;
@@ -27,7 +28,7 @@ impl Service for TraceService {
     ) -> Response<BoxBody<Bytes, hyper::Error>> {
         if request.method() == Method::POST {
             if let Ok(body) = request.into_body().collect().await
-                && let Ok(decompressed) = zstd::bulk::decompress(&body.to_bytes(), 204800)  // 2KB should be enough for most cases, right? Haven't seen any payload larger than 1KB though.
+                && let Ok(decompressed) = decompress(&body.to_bytes(), 204800)  // 2KB should be enough for most cases, right? Haven't seen any payload larger than 1KB though.
                 && let Ok(data) = serde_json::from_str::<Vec<CapturedEventRecord>>(
                     &String::from_utf8_lossy(&decompressed),
                 )

@@ -1,7 +1,6 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use log::debug;
 use reqwest::{Certificate, Identity};
 use url::Url;
 
@@ -43,7 +42,6 @@ impl ApiClient {
             ._base_url
             .join(endpoint)
             .unwrap_or_else(|_| panic!("Failed to construct URL to {endpoint}"));
-        debug!("Building HTTP {method} request to {url}");
         self._client.request(method, url)
     }
 }

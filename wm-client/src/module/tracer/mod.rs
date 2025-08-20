@@ -7,13 +7,14 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use ferrisetw::trace::{KernelTrace, TraceBuilder, TraceTrait};
-use log::{debug, error, info};
+use log::{debug, error, trace};
 use tokio::sync::{Mutex, RwLock, Semaphore, mpsc};
 use tokio::task::{self, JoinHandle};
 use tokio::time::timeout;
 use wm_common::error::RuntimeError;
 use wm_common::schema::{CapturedEventRecord, Event};
 use wm_common::sysinfo::SystemInfo;
+use zstd::bulk::compress;
 
 use crate::configuration::Configuration;
 use crate::http::HttpClient;
@@ -77,11 +78,14 @@ impl EventTracer {
         match serde_json::to_vec(&events_to_send) {
             Ok(data) => {
                 let before = data.len();
-                match zstd::bulk::compress(&data, self._configuration.zstd_compression_level) {
+                match compress(&data, self._configuration.zstd_compression_level) {
                     Ok(compressed) => Some(tokio::spawn(async move {
                         let after = compressed.len();
-                        info!("Compressed events from {before} to {after} bytes");
+                        trace!("Compressed events from {before} to {after} bytes");
+
+                        #[allow(clippy::redundant_pattern_matching)]
                         if let Ok(_) = self._http_semaphore.acquire().await {
+                            // Using `.is_ok()` will immediately release the semaphore
                             if let Err(e) = self
                                 ._http
                                 .api()
