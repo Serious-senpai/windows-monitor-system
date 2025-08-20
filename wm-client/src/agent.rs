@@ -3,7 +3,6 @@ use std::sync::Arc;
 use log::{error, info};
 use wm_common::credential::CredentialManager;
 
-use crate::WCM_NAME;
 use crate::configuration::Configuration;
 use crate::http::HttpClient;
 use crate::module::Module;
@@ -25,10 +24,13 @@ impl Agent {
         }
     }
 
-    pub async fn read_password() -> String {
-        let data = CredentialManager::read(&format!("{WCM_NAME}\0")).unwrap_or_else(|_| {
-            panic!("Failed to read password from Windows Credential Manager. Have you set it yet?")
-        });
+    pub async fn read_password(config: &Configuration) -> String {
+        let data = CredentialManager::read(&format!("{}\0", config.windows_credential_manager_key))
+            .unwrap_or_else(|_| {
+                panic!(
+                    "Failed to read password from Windows Credential Manager. Have you set it yet?"
+                )
+            });
         String::from_utf8_lossy(&data).to_string()
     }
 

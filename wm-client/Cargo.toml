@@ -23,6 +23,7 @@ windows = { workspace = true }
 windows-service-detector = "^0.1.0"
 windows-services = "^0.25.0"
 wm-common = { path = "../wm-common" }
+zstd = { workspace = true }
 
 [lints]
 workspace = true

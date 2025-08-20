@@ -1,4 +1,8 @@
+service_name: Windows Monitor Agent Service
+windows_credential_manager_key: Windows Monitor Client Certificate
 server: https://localhost:12110
-log_level: Trace
+events_per_request: 100
+zstd_compression_level: 3
+log_level: Info
 dns_resolver:
   localhost: 127.0.0.1

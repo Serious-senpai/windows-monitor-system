@@ -13,7 +13,6 @@ use windows::Win32::System::Services::SC_MANAGER_ALL_ACCESS;
 use wm_client::cli::{Arguments, ServiceAction};
 use wm_client::configuration::Configuration;
 use wm_client::runner::AgentRunner;
-use wm_client::{SERVICE_NAME, WCM_NAME};
 use wm_common::credential::CredentialManager;
 use wm_common::error::RuntimeError;
 use wm_common::logger::initialize_logger;
@@ -54,11 +53,11 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     match arguments.action {
         ServiceAction::Create => {
-            info!("Creating new service {SERVICE_NAME}");
+            info!("Creating new service {}", configuration.service_name);
 
             let scm = ServiceManager::new(SC_MANAGER_ALL_ACCESS)?;
             scm.create_service(
-                &format!("{SERVICE_NAME}\0"),
+                &format!("{}\0", configuration.service_name),
                 &format!("{} start\0", executable_path.to_string_lossy()),
             )?;
 
@@ -66,10 +65,11 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         }
         ServiceAction::Start => {
             if windows_service_detector::is_running_as_windows_service() == Ok(true) {
-                info!("Checking service {SERVICE_NAME}");
+                info!("Checking service {}", configuration.service_name);
 
                 let scm = ServiceManager::new(SC_MANAGER_ALL_ACCESS)?;
-                let status = scm.query_service_status(&format!("{SERVICE_NAME}\0"))?;
+                let status =
+                    scm.query_service_status(&format!("{}\0", configuration.service_name))?;
                 if status.current_state != ServiceState::StartPending {
                     Err(RuntimeError::new(format!(
                         "Invalid state {:?}",
@@ -77,7 +77,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                     )))?;
                 }
 
-                info!("Starting service {SERVICE_NAME}");
+                info!("Starting service {}", configuration.service_name);
                 let mut runner = AgentRunner::new::<true>(configuration.clone());
                 runner.run().await?;
             } else {
@@ -88,21 +88,24 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             }
         }
         ServiceAction::Delete => {
-            info!("Deleting service {SERVICE_NAME}");
+            info!("Deleting service {}", configuration.service_name);
 
             let scm = ServiceManager::new(SC_MANAGER_ALL_ACCESS)?;
-            scm.delete_service(&format!("{SERVICE_NAME}\0"))?;
+            scm.delete_service(&format!("{}\0", configuration.service_name))?;
 
             info!("Done");
         }
-        ServiceAction::Password => task::spawn_blocking(|| {
+        ServiceAction::Password => task::spawn_blocking(move || {
             let mut stdout = io::stdout();
             print!("Password (hidden)>");
             let _ = stdout.flush();
 
             let password = rpassword::read_password().expect("Unable to read password");
-            CredentialManager::write(&mut format!("{WCM_NAME}\0"), password.as_bytes())
-                .expect("Failed to store password");
+            CredentialManager::write(
+                &mut format!("{}\0", configuration.windows_credential_manager_key),
+                password.as_bytes(),
+            )
+            .expect("Failed to store password");
 
             info!("Password stored to Windows Credential Manager");
         })

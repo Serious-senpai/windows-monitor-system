@@ -61,5 +61,4 @@ pub struct Event {
 pub struct CapturedEventRecord {
     pub event: Event,
     pub system: Arc<SystemInfo>,
-    pub buffer_length: usize,
 }

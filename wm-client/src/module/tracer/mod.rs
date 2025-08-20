@@ -1,13 +1,16 @@
 pub mod providers;
 
+use std::collections::VecDeque;
 use std::error::Error;
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use ferrisetw::trace::{KernelTrace, TraceBuilder, TraceTrait};
-use log::{debug, error, trace};
-use tokio::sync::{Mutex, RwLock, mpsc};
-use tokio::task;
+use log::{debug, error, info};
+use tokio::sync::{Mutex, RwLock, Semaphore, mpsc};
+use tokio::task::{self, JoinHandle};
+use tokio::time::timeout;
 use wm_common::error::RuntimeError;
 use wm_common::schema::{CapturedEventRecord, Event};
 use wm_common::sysinfo::SystemInfo;
@@ -27,23 +30,21 @@ pub struct EventTracer {
     _http: Arc<HttpClient>,
     _trace: RwLock<Option<KernelTrace>>,
     _running: Mutex<bool>,
+    _http_semaphore: Semaphore,
 }
 
 impl EventTracer {
-    async fn _process_event(self: Arc<Self>, event: Event, buffer_length: usize) {
-        let record = CapturedEventRecord {
-            event,
-            system: SystemInfo::fetch().await,
-            buffer_length,
-        };
-
-        trace!("{}", serde_json::to_string(&record).unwrap());
-        // Send the record to the configured server
-        // let client = self._http.client();
-        // let server_url = self._configuration.server.join("/trace").unwrap();
-        // if let Err(e) = client.post(server_url).json(&record).send().await {
-        //     error!("Failed to send trace event to server: {e}");
-        // }
+    pub fn new(configuration: Arc<Configuration>, http: Arc<HttpClient>) -> Self
+    where
+        Self: Sized,
+    {
+        Self {
+            _configuration: configuration,
+            _http: http,
+            _trace: RwLock::new(None),
+            _running: Mutex::new(false),
+            _http_semaphore: Semaphore::new(5),
+        }
     }
 
     fn _trace_builder(sender: mpsc::UnboundedSender<Event>) -> TraceBuilder<KernelTrace> {
@@ -67,6 +68,72 @@ impl EventTracer {
         let mut self_trace = self._trace.write().await;
         *self_trace = Some(trace);
     }
+
+    async fn _send(
+        self: Arc<Self>,
+        events: &mut VecDeque<CapturedEventRecord>,
+    ) -> Option<JoinHandle<()>> {
+        let events_to_send = events.drain(..).collect::<Vec<CapturedEventRecord>>();
+        match serde_json::to_vec(&events_to_send) {
+            Ok(data) => {
+                let before = data.len();
+                match zstd::bulk::compress(&data, self._configuration.zstd_compression_level) {
+                    Ok(compressed) => Some(tokio::spawn(async move {
+                        let after = compressed.len();
+                        info!("Compressed events from {before} to {after} bytes");
+                        if let Ok(_) = self._http_semaphore.acquire().await {
+                            if let Err(e) = self
+                                ._http
+                                .api()
+                                .post("/trace")
+                                .body(compressed)
+                                .send()
+                                .await
+                            {
+                                error!("Failed to send trace event to server: {e}");
+                            }
+                        }
+                    })),
+                    Err(e) => {
+                        error!("Failed to compress payload: {e}");
+                        None
+                    }
+                }
+            }
+            Err(e) => {
+                error!("Unable to serialize events: {e}");
+                None
+            }
+        }
+    }
+
+    async fn _poll_and_send(
+        self: Arc<Self>,
+        mut receiver: mpsc::UnboundedReceiver<Event>,
+    ) -> (mpsc::UnboundedReceiver<Event>, Option<JoinHandle<()>>) {
+        let mut events = VecDeque::new();
+        let mut last_task = None;
+        loop {
+            match timeout(Duration::from_secs(1), receiver.recv()).await {
+                Ok(Some(event)) => {
+                    events.push_back(CapturedEventRecord {
+                        event,
+                        system: SystemInfo::fetch().await,
+                    });
+
+                    if events.len() >= self._configuration.events_per_request {
+                        last_task = self.clone()._send(&mut events).await;
+                    }
+                }
+                Ok(None) => break (receiver, last_task),
+                Err(_) => {
+                    if !events.is_empty() {
+                        last_task = self.clone()._send(&mut events).await;
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[async_trait]
@@ -88,24 +155,11 @@ impl Module for EventTracer {
         debug!("Running EventTracer");
 
         let (sender, mut receiver) = mpsc::unbounded_channel();
-        let self_cloned = self.clone();
-        let process_handle = tokio::spawn(async move {
-            loop {
-                match receiver.recv().await {
-                    Some(event) => {
-                        self_cloned
-                            .clone()
-                            ._process_event(event, receiver.len())
-                            .await
-                    }
-                    None => break receiver,
-                }
-            }
-        });
+        let process_handle_self = self.clone();
+        let process_handle =
+            tokio::spawn(async move { process_handle_self.clone()._poll_and_send(receiver).await });
 
-        let tracer = Self::_trace_builder(sender);
-
-        let (trace, handle) = tracer
+        let (trace, handle) = Self::_trace_builder(sender)
             .start()
             .map_err(|e| RuntimeError::new(format!("Unable to start kernel trace: {e:?}")))?;
 
@@ -116,10 +170,16 @@ impl Module for EventTracer {
             .await?
             .map_err(|e| RuntimeError::new(format!("Kernel trace error: {e:?}")))?;
 
-        receiver = process_handle
+        let process_result = process_handle
             .await
             .map_err(|e| RuntimeError::new(format!("Unable to reobtain receiver: {e:?}")))?;
+
+        receiver = process_result.0;
         receiver.close();
+
+        if let Some(task) = process_result.1 {
+            let _ = task.await;
+        }
 
         debug!("EventTracer completed");
 
@@ -144,6 +204,7 @@ impl Module for EventTracer {
         }
 
         *running = false;
+        self._http_semaphore.close();
         debug!("EventTracer stopped");
 
         Ok(())
@@ -159,19 +220,5 @@ impl Drop for EventTracer {
         }
 
         *self._running.get_mut() = false;
-    }
-}
-
-impl EventTracer {
-    pub fn new(configuration: Arc<Configuration>, http: Arc<HttpClient>) -> Self
-    where
-        Self: Sized,
-    {
-        Self {
-            _configuration: configuration,
-            _http: http,
-            _trace: RwLock::new(None),
-            _running: Mutex::new(false),
-        }
     }
 }
