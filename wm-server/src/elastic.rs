@@ -11,8 +11,6 @@ use log::{debug, warn};
 use serde::Serialize;
 
 use crate::configuration::Configuration;
-use crate::models::users::User;
-use crate::utils;
 
 async fn _log_error(r: Response) -> bool {
     if r.status_code().is_success() {
@@ -108,18 +106,6 @@ impl ElasticsearchWrapper {
         let elastic = Self {
             _client: Elasticsearch::new(transport),
         };
-
-        let _ = _create_document(
-            &elastic._client,
-            "users.windows-monitor",
-            &config.elasticsearch.username,
-            &User {
-                username: config.elasticsearch.username.clone(),
-                hashed_password: utils::hash_password(&config.elasticsearch.password, None),
-                permission: 1,
-            },
-        )
-        .await;
 
         _put_index_template(
             &elastic._client,

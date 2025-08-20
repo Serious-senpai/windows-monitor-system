@@ -55,6 +55,10 @@ pub struct HttpClient {
 }
 
 impl HttpClient {
+    const fn _client_certificate() -> &'static [u8] {
+        include_bytes!(concat!(env!("OUT_DIR"), "/client.pfx"))
+    }
+
     pub fn new(configuration: &Configuration, password: &str) -> Self {
         let mut builder = reqwest::Client::builder()
             .add_root_certificate(
@@ -62,7 +66,7 @@ impl HttpClient {
                     .expect("Failed to load server certificate"),
             )
             .identity(
-                Identity::from_pkcs12_der(include_bytes!("../../cert/client.pfx"), password)
+                Identity::from_pkcs12_der(Self::_client_certificate(), password)
                     .expect("Failed to load client identity"),
             )
             .timeout(Duration::from_secs(10));
