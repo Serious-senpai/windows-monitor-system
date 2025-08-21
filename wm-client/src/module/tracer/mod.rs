@@ -117,7 +117,6 @@ impl EventTracer {
             }
             Err(e) => {
                 error!("Failed to read backup directory: {e}");
-                return;
             }
         }
     }

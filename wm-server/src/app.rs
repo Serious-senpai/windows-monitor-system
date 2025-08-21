@@ -56,6 +56,8 @@ impl App {
 
     pub async fn new(config: Arc<Configuration>) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let mut services = HashMap::new();
+
+        #[allow(clippy::single_element_loop)]
         for service in [
             Arc::new(TraceService {}) as Arc<dyn Service>,
             // More services here later

@@ -34,7 +34,7 @@ impl Service for TraceService {
             let stream = request
                 .into_body()
                 .into_data_stream()
-                .map_err(|e| io::Error::other(e));
+                .map_err(io::Error::other);
             let mut decompressor = ZstdDecoder::new(StreamReader::new(stream));
 
             let mut buffer = vec![];
