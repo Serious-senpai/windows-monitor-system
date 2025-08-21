@@ -97,10 +97,14 @@ impl EventTracer {
 
                     match OpenOptions::new().read(true).open(&path).await {
                         Ok(file) => {
+                            let compressor = ZstdEncoder::with_quality(
+                                BufReader::new(file),
+                                Level::Precise(configuration.zstd_compression_level),
+                            );
                             if let Err(e) = http
                                 .api()
                                 .post("/backup")
-                                .body(Body::wrap_stream(ReaderStream::new(file)))
+                                .body(Body::wrap_stream(ReaderStream::new(compressor)))
                                 .send()
                                 .await
                             {
