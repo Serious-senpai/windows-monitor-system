@@ -2,25 +2,28 @@ pub mod providers;
 
 use std::collections::VecDeque;
 use std::error::Error;
+use std::io::Cursor;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
+use async_compression::Level;
+use async_compression::tokio::bufread::ZstdEncoder;
 use async_trait::async_trait;
+use bytes::Bytes;
 use ferrisetw::trace::{KernelTrace, TraceBuilder, TraceTrait};
-use log::{debug, error, trace};
+use log::{debug, error};
 use reqwest::Body;
-use tokio::fs;
-use tokio::fs::{File, OpenOptions};
-use tokio::io::AsyncWriteExt;
+use tokio::fs::OpenOptions;
+use tokio::io::{AsyncWriteExt, BufReader};
 use tokio::sync::{Mutex, RwLock, Semaphore, mpsc};
-use tokio::task::{self, JoinHandle};
+use tokio::task::JoinHandle;
 use tokio::time::timeout;
+use tokio::{fs, task};
 use tokio_util::io::ReaderStream;
 use wm_common::error::RuntimeError;
 use wm_common::schema::{CapturedEventRecord, Event};
 use wm_common::sysinfo::SystemInfo;
-use zstd::bulk::compress;
 
 use crate::configuration::Configuration;
 use crate::http::HttpClient;
@@ -38,7 +41,7 @@ pub struct EventTracer {
     _trace: RwLock<Option<KernelTrace>>,
     _running: Mutex<bool>,
     _http_semaphore: Semaphore,
-    _backup: Mutex<File>,
+    _backup: Mutex<fs::File>,
     _send_previous_backup: JoinHandle<()>,
 }
 
@@ -58,49 +61,14 @@ impl EventTracer {
         }
 
         let backup_path = Self::_get_log_file_path(configuration.clone(), index);
-        let backup = File::create(&backup_path)
+        let backup = fs::File::create(&backup_path)
             .await
             .expect("Failed to create backup file");
 
         let configuration_cloned = configuration.clone();
         let http_cloned = http.clone();
         let send_previous_backup = tokio::spawn(async move {
-            match fs::read_dir(&configuration_cloned.backup_directory).await {
-                Ok(mut reader) => {
-                    while let Ok(Some(entry)) = reader.next_entry().await {
-                        let path = entry.path();
-                        if path == backup_path {
-                            continue; // Skip the current backup file
-                        }
-
-                        match OpenOptions::new().read(true).open(&path).await {
-                            Ok(file) => {
-                                if let Err(e) = http_cloned
-                                    .api()
-                                    .post("/backup")
-                                    .body(Body::wrap_stream(ReaderStream::new(file)))
-                                    .send()
-                                    .await
-                                {
-                                    error!(
-                                        "Failed to send backup {} to server: {e:?}",
-                                        path.display()
-                                    );
-                                } else {
-                                    let _ = fs::remove_file(&path);
-                                }
-                            }
-                            Err(e) => {
-                                error!("Failed to read backup file {}: {e}", path.display());
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    error!("Failed to read backup directory: {e}");
-                    return;
-                }
-            }
+            Self::_send_previous_backup_impl(configuration_cloned, http_cloned, backup_path).await;
         });
 
         Self {
@@ -111,6 +79,46 @@ impl EventTracer {
             _http_semaphore: Semaphore::new(5),
             _backup: Mutex::new(backup),
             _send_previous_backup: send_previous_backup,
+        }
+    }
+
+    async fn _send_previous_backup_impl(
+        configuration: Arc<Configuration>,
+        http: Arc<HttpClient>,
+        exclude: PathBuf,
+    ) {
+        match fs::read_dir(&configuration.backup_directory).await {
+            Ok(mut reader) => {
+                while let Ok(Some(entry)) = reader.next_entry().await {
+                    let path = entry.path();
+                    if path == exclude {
+                        continue;
+                    }
+
+                    match OpenOptions::new().read(true).open(&path).await {
+                        Ok(file) => {
+                            if let Err(e) = http
+                                .api()
+                                .post("/backup")
+                                .body(Body::wrap_stream(ReaderStream::new(file)))
+                                .send()
+                                .await
+                            {
+                                error!("Failed to send backup {} to server: {e:?}", path.display());
+                            } else {
+                                let _ = fs::remove_file(&path).await;
+                            }
+                        }
+                        Err(e) => {
+                            error!("Failed to read backup file {}: {e}", path.display());
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                error!("Failed to read backup directory: {e}");
+                return;
+            }
         }
     }
 
@@ -148,42 +156,39 @@ impl EventTracer {
     ) -> Option<JoinHandle<()>> {
         let events_to_send = events.drain(..).collect::<Vec<CapturedEventRecord>>();
         match serde_json::to_vec(&events_to_send) {
-            Ok(mut data) => {
-                let before = data.len();
-                match compress(&data, self._configuration.zstd_compression_level) {
-                    Ok(compressed) => Some(tokio::spawn(async move {
-                        let after = compressed.len();
-                        trace!("Compressed events from {before} to {after} bytes");
+            Ok(data) => {
+                Some(tokio::spawn(async move {
+                    let data = Bytes::from(data);
+                    let reader = BufReader::new(Cursor::new(data.clone()));
+                    let compressor = ZstdEncoder::with_quality(
+                        reader,
+                        Level::Precise(self._configuration.zstd_compression_level),
+                    );
 
-                        #[allow(clippy::redundant_pattern_matching)]
-                        if let Ok(_) = self._http_semaphore.acquire().await {
-                            // Using `.is_ok()` will immediately release the semaphore
-                            if let Err(e) = self
-                                ._http
-                                .api()
-                                .post("/trace")
-                                .body(compressed)
-                                .send()
-                                .await
-                            {
-                                error!(
-                                    "Failed to send trace event to server: {e:?}, writing to backup instead"
-                                );
+                    #[allow(clippy::redundant_pattern_matching)]
+                    if let Ok(_) = self._http_semaphore.acquire().await {
+                        // Using `.is_ok()` will immediately release the semaphore
+                        if let Err(e) = self
+                            ._http
+                            .api()
+                            .post("/trace")
+                            .body(Body::wrap_stream(ReaderStream::new(compressor)))
+                            .send()
+                            .await
+                        {
+                            error!(
+                                "Failed to send trace event to server: {e:?}, writing to backup instead"
+                            );
 
-                                let mut backup = self._backup.lock().await;
+                            let mut backup = self._backup.lock().await;
 
-                                data.push(b'\n'); // Ensure each event is on a new line
-                                if let Err(e) = backup.write(&data).await {
-                                    error!("Failed to backup data: {e}");
-                                }
+                            if let Err(e) = backup.write(&data).await {
+                                error!("Failed to backup data: {e}");
                             }
+                            let _ = backup.write(b"\n").await;
                         }
-                    })),
-                    Err(e) => {
-                        error!("Failed to compress payload: {e}");
-                        None
                     }
-                }
+                }))
             }
             Err(e) => {
                 error!("Unable to serialize events: {e}");

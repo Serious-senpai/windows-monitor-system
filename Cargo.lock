@@ -102,6 +102,8 @@ dependencies = [
  "memchr",
  "pin-project-lite",
  "tokio",
+ "zstd",
+ "zstd-safe",
 ]
 
 [[package]]
@@ -2906,7 +2908,9 @@ dependencies = [
 name = "wm-client"
 version = "0.1.0"
 dependencies = [
+ "async-compression",
  "async-trait",
+ "bytes",
  "clap",
  "config-file",
  "ferrisetw",
@@ -2922,7 +2926,6 @@ dependencies = [
  "windows-service-detector",
  "windows-services",
  "wm-common",
- "zstd",
 ]
 
 [[package]]
@@ -2943,9 +2946,11 @@ dependencies = [
 name = "wm-server"
 version = "0.1.0"
 dependencies = [
+ "async-compression",
  "async-trait",
  "config-file",
  "elasticsearch",
+ "futures-util",
  "http-body-util",
  "hyper",
  "hyper-util",
@@ -2959,9 +2964,9 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-rustls",
+ "tokio-util",
  "url",
  "wm-common",
- "zstd",
 ]
 
 [[package]]
