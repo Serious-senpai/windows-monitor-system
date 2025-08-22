@@ -54,7 +54,9 @@ impl App {
         rustls_pemfile::private_key(&mut reader).map(|key| key.unwrap())
     }
 
-    pub async fn new(config: Arc<Configuration>) -> Result<Self, Box<dyn Error + Send + Sync>> {
+    pub async fn async_new(
+        config: Arc<Configuration>,
+    ) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let mut services = HashMap::new();
 
         #[allow(clippy::single_element_loop)]
@@ -76,7 +78,7 @@ impl App {
         let mut lock = self._elastic.lock().await;
         match &*lock {
             Some(ptr) => Some(ptr.clone()),
-            None => match ElasticsearchWrapper::new(&self._config).await {
+            None => match ElasticsearchWrapper::async_new(&self._config).await {
                 Ok(inner) => {
                     let ptr = Arc::new(inner);
                     *lock = Some(ptr.clone());

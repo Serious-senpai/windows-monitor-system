@@ -40,7 +40,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     )?;
     debug!("Initialized logger");
 
-    let app = Arc::new(App::new(configuration).await?);
+    let app = Arc::new(App::async_new(configuration).await?);
     app.run().await?;
 
     Ok(())

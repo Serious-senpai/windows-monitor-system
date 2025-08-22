@@ -7,8 +7,8 @@ use ferrisetw::provider::kernel_providers::KernelProvider;
 use ferrisetw::{EventRecord, GUID, SchemaLocator};
 use windows::Win32::System::Diagnostics::Etw::EVENT_TRACE_FLAG_NETWORK_TCPIP;
 use wm_common::error::RuntimeError;
+use wm_common::schema::event::{Event, EventData};
 
-use wm_common::schema::{Event, EventData};
 use crate::module::tracer::providers::ProviderWrapper;
 
 const _PROVIDER: KernelProvider = KernelProvider::new(
@@ -66,6 +66,7 @@ impl ProviderWrapper for UdpIpProviderWrapper {
 
                 Ok(Event {
                     guid: format!("{:?}", record.provider_id()),
+                    raw_timestamp: record.raw_timestamp(),
                     process_id: pid,
                     thread_id: record.thread_id(),
                     event_id: record.event_id(),

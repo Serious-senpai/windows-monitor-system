@@ -1,3 +1,4 @@
+pub mod connector;
 pub mod tracer;
 
 use std::error::Error;

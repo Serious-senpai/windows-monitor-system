@@ -6,7 +6,7 @@ use ferrisetw::provider::kernel_providers::KernelProvider;
 use ferrisetw::{EventRecord, GUID, SchemaLocator};
 use windows::Win32::System::Diagnostics::Etw::EVENT_TRACE_FLAG_DISK_FILE_IO;
 use wm_common::error::RuntimeError;
-use wm_common::schema::{Event, EventData};
+use wm_common::schema::event::{Event, EventData};
 
 use crate::module::tracer::providers::ProviderWrapper;
 
@@ -55,6 +55,7 @@ impl ProviderWrapper for FileProviderWrapper {
 
                 Ok(Event {
                     guid: format!("{:?}", record.provider_id()),
+                    raw_timestamp: record.raw_timestamp(),
                     process_id: record.process_id(),
                     thread_id: record.thread_id(),
                     event_id: record.event_id(),

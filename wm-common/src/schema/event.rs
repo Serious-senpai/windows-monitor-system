@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::sysinfo::SystemInfo;
+use crate::schema::sysinfo::SystemInfo;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type", content = "data")]
@@ -50,6 +50,7 @@ pub enum EventData {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Event {
     pub guid: String,
+    pub raw_timestamp: i64,
     pub process_id: u32,
     pub thread_id: u32,
     pub event_id: u16,

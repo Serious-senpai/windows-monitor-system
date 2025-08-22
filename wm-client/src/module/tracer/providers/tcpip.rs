@@ -6,8 +6,8 @@ use ferrisetw::parser::Parser;
 use ferrisetw::provider::kernel_providers::{KernelProvider, TCP_IP_PROVIDER};
 use ferrisetw::{EventRecord, SchemaLocator};
 use wm_common::error::RuntimeError;
+use wm_common::schema::event::{Event, EventData};
 
-use wm_common::schema::{Event, EventData};
 use crate::module::tracer::providers::ProviderWrapper;
 
 pub struct TcpIpProviderWrapper;
@@ -55,6 +55,7 @@ impl ProviderWrapper for TcpIpProviderWrapper {
 
                 Ok(Event {
                     guid: format!("{:?}", record.provider_id()),
+                    raw_timestamp: record.raw_timestamp(),
                     process_id: pid,
                     thread_id: record.thread_id(),
                     event_id: record.event_id(),

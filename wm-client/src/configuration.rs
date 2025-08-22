@@ -7,13 +7,21 @@ use url::Url;
 use wm_common::logger::LogLevel;
 
 #[derive(Deserialize, Serialize)]
+pub struct EventPostSettings {
+    pub concurrency_limit: usize,
+    pub accumulated_batch_threshold: usize,
+}
+
+#[derive(Deserialize, Serialize)]
 pub struct Configuration {
     pub service_name: String,
     pub windows_credential_manager_key: String,
     pub server: Url,
-    pub events_per_request: usize,
     pub zstd_compression_level: i32,
+    pub system_refresh_interval_seconds: f64,
     pub backup_directory: PathBuf,
     pub log_level: LogLevel,
+    pub message_queue_limit: usize,
     pub dns_resolver: HashMap<String, IpAddr>,
+    pub event_post: EventPostSettings,
 }

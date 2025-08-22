@@ -50,7 +50,7 @@ pub struct ElasticsearchWrapper {
 }
 
 impl ElasticsearchWrapper {
-    pub async fn new(config: &Configuration) -> Result<Self, Box<dyn Error + Send + Sync>> {
+    pub async fn async_new(config: &Configuration) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let transport = Transport::single_node(config.elasticsearch.host.as_str())?;
         transport.set_auth(Credentials::Basic(
             config.elasticsearch.username.clone(),

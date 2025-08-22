@@ -11,7 +11,7 @@ use hyper::{Method, Request, Response, StatusCode};
 use log::info;
 use tokio::io::AsyncReadExt;
 use tokio_util::io::StreamReader;
-use wm_common::schema::CapturedEventRecord;
+use wm_common::schema::event::CapturedEventRecord;
 
 use crate::app::App;
 use crate::responses::ResponseBuilder;

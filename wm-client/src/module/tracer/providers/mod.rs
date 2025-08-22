@@ -5,16 +5,19 @@ pub mod tcpip;
 pub mod udpip;
 
 use std::error::Error;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock as BlockingRwLock};
 
 use ferrisetw::provider::Provider;
 use ferrisetw::provider::kernel_providers::KernelProvider;
 use ferrisetw::trace::{KernelTrace, TraceBuilder};
 use ferrisetw::{EventRecord, SchemaLocator};
 use log::{debug, error};
-use tokio::sync::mpsc;
+use tokio::fs;
+use tokio::io::AsyncWriteExt;
+use tokio::sync::{Mutex, mpsc};
+use wm_common::schema::event::{CapturedEventRecord, Event};
 
-use wm_common::schema::Event;
+use crate::module::tracer::enricher::BlockingSystemInfo;
 
 pub trait ProviderWrapper: Send + Sync {
     fn new() -> Self
@@ -36,7 +39,9 @@ pub trait ProviderWrapper: Send + Sync {
     fn attach(
         self: Arc<Self>,
         trace: TraceBuilder<KernelTrace>,
-        sender: mpsc::UnboundedSender<Event>,
+        sender: mpsc::Sender<Arc<CapturedEventRecord>>,
+        enricher: Arc<BlockingRwLock<BlockingSystemInfo>>,
+        backup: Arc<Mutex<fs::File>>,
     ) -> TraceBuilder<KernelTrace>
     where
         Self: 'static,
@@ -48,10 +53,38 @@ pub trait ProviderWrapper: Send + Sync {
         let provider = Provider::kernel(provider)
             .add_callback(move |record, schema_locator| {
                 if ptr.clone().filter(record) {
+                    // cargo fmt error here: https://github.com/rust-lang/rustfmt/issues/5689
                     match ptr.clone().callback(record, schema_locator) {
-                        Ok(event) => {
-                            let _ = sender.send(event);
-                        }
+                        Ok(event) => match enricher.try_write() {
+                            Ok(mut enricher) => {
+                                let data = Arc::new(CapturedEventRecord {
+                                    event,
+                                    system: enricher.system_info(),
+                                });
+
+                                if sender.try_send(data.clone()).is_err() {
+                                    error!(
+                                        "Message queue is full, backing up event to persistent file"
+                                    );
+
+                                    let backup = backup.clone();
+                                    tokio::spawn(async move {
+                                        let mut file = backup.lock().await;
+                                        if let Err(e) = file
+                                            .write_all(
+                                                serde_json::to_string(&data).unwrap().as_bytes(),
+                                            )
+                                            .await
+                                        {
+                                            error!("Unable to backup. Event is lost: {e}");
+                                        }
+                                    });
+                                }
+                            }
+                            Err(e) => {
+                                error!("Unable to get event enricher. Event is lost: {e}");
+                            }
+                        },
                         Err(e) => {
                             error!("Error when handling event from {:?}: {e}", provider.guid);
                         }
