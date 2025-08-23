@@ -12,6 +12,7 @@ echo cd /d %root%>> "%root%\.vscode\__run.bat"
 echo set OPENSSL_DIR=%root%\extern\OpenSSL\3.4.1>> "%root%\.vscode\__run.bat"
 echo set OPENSSL_CONF=%root%\extern\OpenSSL\3.4.1\ssl\openssl.cnf>> "%root%\.vscode\__run.bat"
 echo set PATH=%root%\extern\OpenSSL\3.4.1\bin;%%PATH%%>> "%root%\.vscode\__run.bat"
+echo set WINDOWS_MONITOR_PASSWORD=password >> "%root%\.vscode\__run.bat"
 echo cmd>> "%root%\.vscode\__run.bat"
 
 copy /-y "%root%\.vscode\__run.bat" "%root%\run.bat"
