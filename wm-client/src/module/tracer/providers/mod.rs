@@ -11,7 +11,7 @@ use ferrisetw::provider::Provider;
 use ferrisetw::provider::kernel_providers::KernelProvider;
 use ferrisetw::trace::{KernelTrace, TraceBuilder};
 use ferrisetw::{EventRecord, SchemaLocator};
-use log::{debug, error};
+use log::{debug, error, warn};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::{Mutex, mpsc};
@@ -63,7 +63,7 @@ pub trait ProviderWrapper: Send + Sync {
                                 });
 
                                 if sender.try_send(data.clone()).is_err() {
-                                    error!(
+                                    warn!(
                                         "Message queue is full, backing up event to persistent file"
                                     );
 

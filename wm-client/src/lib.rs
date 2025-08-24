@@ -1,4 +1,5 @@
 pub mod agent;
+pub mod backup;
 pub mod cli;
 pub mod configuration;
 pub mod http;
