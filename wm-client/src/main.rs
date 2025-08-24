@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     initialize_logger(
         configuration.log_level,
         File::create(log_directory.join(format!(
-                "wm-{}.log",
+                "wm-client-{}.log",
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .expect("Time went backwards").as_millis()

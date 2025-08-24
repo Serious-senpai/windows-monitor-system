@@ -15,6 +15,7 @@ pub struct EventPostSettings {
 #[derive(Deserialize, Serialize)]
 pub struct Configuration {
     pub service_name: String,
+    pub trace_name: String,
     pub windows_credential_manager_key: String,
     pub server: Url,
     pub zstd_compression_level: i32,

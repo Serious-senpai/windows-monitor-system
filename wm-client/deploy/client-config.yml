@@ -1,15 +1,16 @@
 service_name: Windows Monitor Agent Service
+trace_name: Windows Monitor Event Tracer
 windows_credential_manager_key: Windows Monitor Client Certificate
 server: https://localhost:12110
 zstd_compression_level: 3
 system_refresh_interval_seconds: 3.0
 backup_directory: target/backup
 
-log_level: Info
+log_level: Debug
 message_queue_limit: 1000
 dns_resolver:
   localhost: 127.0.0.1
 
 event_post:
   concurrency_limit: 10
-  accumulated_batch_threshold: 10240
+  accumulated_batch_threshold: 51200

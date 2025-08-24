@@ -26,7 +26,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 tokio-rustls = "^0.26.2"
-tokio-util = { workspace = true }
+tokio-util = "^0.7.16"
 url = { workspace = true }
 wm-common = { path = "../wm-common" }
 

@@ -70,6 +70,7 @@ pub trait ProviderWrapper: Send + Sync {
                                     let backup = backup.clone();
                                     tokio::spawn(async move {
                                         let mut file = backup.lock().await;
+                                        let _ = file.write_u8(b'[').await;
                                         if let Err(e) = file
                                             .write_all(
                                                 serde_json::to_string(&data).unwrap().as_bytes(),
@@ -78,6 +79,9 @@ pub trait ProviderWrapper: Send + Sync {
                                         {
                                             error!("Unable to backup. Event is lost: {e}");
                                         }
+
+                                        let _ = file.write_u8(b']').await;
+                                        let _ = file.write_u8(b'\n').await;
                                     });
                                 }
                             }
@@ -86,7 +90,7 @@ pub trait ProviderWrapper: Send + Sync {
                             }
                         },
                         Err(e) => {
-                            error!("Error when handling event from {:?}: {e}", provider.guid);
+                            error!("Error handling event from {:?}: {e}", provider.guid);
                         }
                     }
                 }

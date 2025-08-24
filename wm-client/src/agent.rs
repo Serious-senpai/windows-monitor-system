@@ -59,7 +59,7 @@ impl Agent {
             .join(format!("backup-{index}.jsonl"))
     }
 
-    pub async fn read_password(config: &Configuration) -> String {
+    pub fn read_password(config: &Configuration) -> String {
         let data = CredentialManager::read(&format!("{}\0", config.windows_credential_manager_key))
             .unwrap_or_else(|_| {
                 panic!(

@@ -25,6 +25,7 @@ use crate::configuration::Configuration;
 use crate::elastic::ElasticsearchWrapper;
 use crate::responses::ResponseBuilder;
 use crate::routes::abc::Service;
+use crate::routes::health_check::HealthCheckService;
 use crate::routes::trace::TraceService;
 
 pub struct App {
@@ -59,10 +60,9 @@ impl App {
     ) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let mut services = HashMap::new();
 
-        #[allow(clippy::single_element_loop)]
         for service in [
+            Arc::new(HealthCheckService {}) as Arc<dyn Service>,
             Arc::new(TraceService {}) as Arc<dyn Service>,
-            // More services here later
         ] {
             services.insert(service.route().to_string(), service);
         }

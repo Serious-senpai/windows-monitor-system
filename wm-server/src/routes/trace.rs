@@ -38,17 +38,17 @@ impl Service for TraceService {
             let mut decompressor = ZstdDecoder::new(StreamReader::new(stream));
 
             let mut buffer = vec![];
-            if decompressor.read_to_end(&mut buffer).await.is_ok() {
-                if let Ok(data) = serde_json::from_str::<Vec<CapturedEventRecord>>(
+            if decompressor.read_to_end(&mut buffer).await.is_ok()
+                && let Ok(data) = serde_json::from_str::<Vec<CapturedEventRecord>>(
                     &String::from_utf8_lossy(&buffer),
-                ) {
-                    info!(
-                        "Received {} uncompressed bytes of trace data ({} events)",
-                        buffer.len(),
-                        data.len()
-                    );
-                    return ResponseBuilder::empty(StatusCode::NO_CONTENT);
-                }
+                )
+            {
+                info!(
+                    "Received {} uncompressed bytes of trace data ({} events)",
+                    buffer.len(),
+                    data.len()
+                );
+                return ResponseBuilder::empty(StatusCode::NO_CONTENT);
             }
 
             ResponseBuilder::default(StatusCode::BAD_REQUEST)

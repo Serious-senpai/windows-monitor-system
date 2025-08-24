@@ -49,7 +49,7 @@ impl AgentRunner {
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let password = Agent::read_password(&self._configuration).await;
+        let password = Agent::read_password(&self._configuration);
         let agent = Arc::new(Agent::async_new(self._configuration.clone(), &password).await);
 
         let ptr = agent.clone();

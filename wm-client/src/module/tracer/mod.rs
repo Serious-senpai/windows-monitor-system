@@ -6,7 +6,7 @@ use std::sync::{Arc, RwLock as BlockingRwLock};
 use std::time::Duration;
 
 use async_trait::async_trait;
-use ferrisetw::trace::{KernelTrace, TraceBuilder, TraceTrait};
+use ferrisetw::trace::{KernelTrace, TraceBuilder, TraceTrait, stop_trace_by_name};
 use log::{debug, error};
 use tokio::sync::{Mutex, RwLock, mpsc};
 use tokio::{fs, task};
@@ -57,7 +57,7 @@ impl EventTracer {
     }
 
     fn _trace_builder(self: Arc<Self>) -> TraceBuilder<KernelTrace> {
-        let mut tracer = KernelTrace::new().named("Windows Monitor Event Tracer".into());
+        let mut tracer = KernelTrace::new().named(self._configuration.trace_name.clone());
         let wrappers: Vec<Arc<dyn ProviderWrapper>> = vec![
             Arc::new(FileProviderWrapper::new()),
             Arc::new(ImageProviderWrapper::new()),
@@ -102,6 +102,7 @@ impl Module for EventTracer {
 
         debug!("Running EventTracer");
 
+        let _ = stop_trace_by_name(&self._configuration.trace_name);
         let (trace, handle) = self
             .clone()
             ._trace_builder()
