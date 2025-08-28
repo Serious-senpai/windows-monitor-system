@@ -3,12 +3,14 @@ use std::sync::Arc;
 
 use async_compression::tokio::bufread::ZstdDecoder;
 use async_trait::async_trait;
+use elasticsearch::BulkParts;
 use futures_util::stream::TryStreamExt;
 use http_body_util::BodyExt;
 use http_body_util::combinators::BoxBody;
 use hyper::body::{Bytes, Incoming};
 use hyper::{Method, Request, Response, StatusCode};
-use log::info;
+use log::{debug, error};
+use serde_json::Value;
 use tokio::io::AsyncReadExt;
 use tokio_util::io::StreamReader;
 use wm_common::schema::event::CapturedEventRecord;
@@ -27,7 +29,7 @@ impl Service for TraceService {
 
     async fn serve(
         &self,
-        _: Arc<App>,
+        app: Arc<App>,
         request: Request<Incoming>,
     ) -> Response<BoxBody<Bytes, hyper::Error>> {
         if request.method() == Method::POST {
@@ -43,12 +45,48 @@ impl Service for TraceService {
                     &String::from_utf8_lossy(&buffer),
                 )
             {
-                info!(
+                debug!(
                     "Received {} uncompressed bytes of trace data ({} events)",
                     buffer.len(),
                     data.len()
                 );
-                return ResponseBuilder::empty(StatusCode::NO_CONTENT);
+                match app.elastic().await {
+                    Some(elastic) => {
+                        let mut body = vec![];
+
+                        let create_request = "{\"create\":{}}\n".to_string();
+                        for event in data {
+                            body.push(create_request.clone());
+                            body.push(format!("{}\n", serde_json::to_string(&event).unwrap()));
+                        }
+
+                        match elastic
+                            .client()
+                            .bulk(BulkParts::Index(
+                                "logs-endpoint.events.windows-monitor-original-test",
+                            ))
+                            .body(body)
+                            .send()
+                            .await
+                        {
+                            Ok(response) => {
+                                debug!(
+                                    "{} {:?}",
+                                    response.status_code(),
+                                    response.json::<Value>().await
+                                );
+                            }
+                            Err(e) => {
+                                error!("{e}");
+                            }
+                        }
+
+                        return ResponseBuilder::empty(StatusCode::NO_CONTENT);
+                    }
+                    None => {
+                        return ResponseBuilder::default(StatusCode::SERVICE_UNAVAILABLE);
+                    }
+                }
             }
 
             ResponseBuilder::default(StatusCode::BAD_REQUEST)

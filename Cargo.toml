@@ -5,6 +5,7 @@ members = ["wm-client", "wm-common", "wm-server"]
 [workspace.dependencies]
 async-compression = { version = "^0.4.27", features = ["tokio", "zstd"] }
 async-trait = "^0.1.88"
+chrono = { version = "^0.4.41", features = ["serde"] }
 config-file = { version = "^0.2.3", features = ["yaml"] }
 ferrisetw = "^1.2.0"
 log = "^0.4.27"

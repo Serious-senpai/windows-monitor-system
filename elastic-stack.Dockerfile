@@ -7,10 +7,10 @@ COPY config/elasticsearch.yml /usr/share/elasticsearch/config/elasticsearch.yml
 #     rm /usr/share/elasticsearch/elasticsearch-ssl-http.zip && \
 #     cp /usr/share/elasticsearch/elasticsearch-ssl-http/elasticsearch/http.p12 /usr/share/elasticsearch/config/http.p12 && \
 RUN bin/elasticsearch & pid=$! && \
-    sleep 60 && \
     until printf "y\nelastic-password\nelastic-password\n" | bin/elasticsearch-reset-password -i -u elastic; do sleep 3; done && \
     printf "y\nkibana-password\nkibana-password\n" | bin/elasticsearch-reset-password -i -u kibana_system && \
-    kill $pid
+    kill -TERM $pid && \
+    wait $pid || [ $? -eq 143 ]
 
 FROM kibana:9.1.0 AS kibana
 

@@ -15,7 +15,7 @@ use wm_common::schema::event::CapturedEventRecord;
 
 use crate::configuration::Configuration;
 use crate::module::Module;
-use crate::module::tracer::enricher::BlockingSystemInfo;
+use crate::module::tracer::enricher::BlockingEventEnricher;
 use crate::module::tracer::providers::ProviderWrapper;
 use crate::module::tracer::providers::file::FileProviderWrapper;
 use crate::module::tracer::providers::image::ImageProviderWrapper;
@@ -29,7 +29,7 @@ pub struct EventTracer {
     _trace: RwLock<Option<KernelTrace>>,
     _running: Mutex<bool>,
     _backup: Arc<Mutex<fs::File>>,
-    _enricher: Arc<BlockingRwLock<BlockingSystemInfo>>,
+    _enricher: Arc<BlockingRwLock<BlockingEventEnricher>>,
 }
 
 impl EventTracer {
@@ -48,7 +48,7 @@ impl EventTracer {
             _running: Mutex::new(false),
             _backup: backup,
             _enricher: Arc::new(BlockingRwLock::new(
-                BlockingSystemInfo::async_new(Duration::from_secs_f64(
+                BlockingEventEnricher::async_new(Duration::from_secs_f64(
                     configuration.system_refresh_interval_seconds,
                 ))
                 .await,

@@ -1,0 +1,15 @@
+n
+n
+n
+
+5y
+n
+elasticsearch
+localhost
+
+y
+
+y
+n
+
+/usr/share/elasticsearch/elasticsearch-ssl-http.zip

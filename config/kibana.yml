@@ -1,0 +1,7 @@
+server.host: "0.0.0.0"
+server.shutdownTimeout: "5s"
+elasticsearch.hosts: "http://elasticsearch:9200"
+elasticsearch.username: "kibana_system"
+# elasticsearch.ssl.certificateAuthorities: [ "config/elasticsearch-ca.pem" ]
+monitoring.ui.container.elasticsearch.enabled: true
+xpack.encryptedSavedObjects.encryptionKey: "22d2084f01936c564e690d170959976647b46c843bcb313ff7312fc169dc889c"

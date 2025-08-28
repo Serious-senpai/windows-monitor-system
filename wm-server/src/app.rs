@@ -67,16 +67,19 @@ impl App {
             services.insert(service.route().to_string(), service);
         }
 
-        Ok(Self {
+        let this = Self {
             _config: config,
             _services: services,
             _elastic: Mutex::new(None),
-        })
+        };
+        let _ = this.elastic().await; // Pre-initialize Elasticsearch connection if possible
+
+        Ok(this)
     }
 
     pub async fn elastic(&self) -> Option<Arc<ElasticsearchWrapper>> {
         let mut lock = self._elastic.lock().await;
-        match &*lock {
+        match lock.as_ref() {
             Some(ptr) => Some(ptr.clone()),
             None => match ElasticsearchWrapper::async_new(&self._config).await {
                 Ok(inner) => {

@@ -7,6 +7,7 @@ pub mod udpip;
 use std::error::Error;
 use std::sync::{Arc, RwLock as BlockingRwLock};
 
+use chrono::Utc;
 use ferrisetw::provider::Provider;
 use ferrisetw::provider::kernel_providers::KernelProvider;
 use ferrisetw::trace::{KernelTrace, TraceBuilder};
@@ -17,7 +18,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::{Mutex, mpsc};
 use wm_common::schema::event::{CapturedEventRecord, Event};
 
-use crate::module::tracer::enricher::BlockingSystemInfo;
+use crate::module::tracer::enricher::BlockingEventEnricher;
 
 pub trait ProviderWrapper: Send + Sync {
     fn new() -> Self
@@ -40,7 +41,7 @@ pub trait ProviderWrapper: Send + Sync {
         self: Arc<Self>,
         trace: TraceBuilder<KernelTrace>,
         sender: mpsc::Sender<Arc<CapturedEventRecord>>,
-        enricher: Arc<BlockingRwLock<BlockingSystemInfo>>,
+        enricher: Arc<BlockingRwLock<BlockingEventEnricher>>,
         backup: Arc<Mutex<fs::File>>,
     ) -> TraceBuilder<KernelTrace>
     where
@@ -58,8 +59,11 @@ pub trait ProviderWrapper: Send + Sync {
                         Ok(event) => match enricher.try_write() {
                             Ok(mut enricher) => {
                                 let data = Arc::new(CapturedEventRecord {
+                                    timestamp: Utc::now(),
                                     event,
-                                    system: enricher.system_info(),
+                                    counter: enricher.counter.record(),
+                                    eps: enricher.counter.eps(),
+                                    system: enricher.system.system_info(),
                                 });
 
                                 if sender.try_send(data.clone()).is_err() {

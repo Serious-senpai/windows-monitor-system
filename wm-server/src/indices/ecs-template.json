@@ -1,6 +1,6 @@
 {
     "index_patterns": [
-        "logs-endpoint.events.windows-monitor-*"
+        "logs-endpoint.events.windows-monitor-ecs-*"
     ],
     "data_stream": {},
     "priority": 1000,

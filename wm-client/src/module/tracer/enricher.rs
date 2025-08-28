@@ -69,3 +69,55 @@ impl BlockingSystemInfo {
         self._info.clone()
     }
 }
+
+pub struct BlockingEventCounter {
+    _total: u128,
+    _eps: f64,
+    _last_record: Instant,
+}
+
+impl BlockingEventCounter {
+    fn new() -> Self {
+        Self {
+            _total: 0,
+            _eps: 0.0,
+            _last_record: Instant::now(),
+        }
+    }
+
+    pub fn record(&mut self) -> u128 {
+        let elapsed = self._last_record.elapsed().as_secs_f64();
+        self._eps = if elapsed < 1.0 {
+            if self._eps == 0.0 {
+                1.0 / elapsed
+            } else {
+                1.0 + self._eps * (1.0 - elapsed)
+            }
+        } else {
+            1.0 / elapsed
+        };
+
+        self._total = self._total.saturating_add(1);
+        self._last_record = Instant::now();
+
+        self._total
+    }
+
+    pub fn eps(&self) -> f64 {
+        self._eps
+    }
+}
+
+pub struct BlockingEventEnricher {
+    pub system: BlockingSystemInfo,
+    pub counter: BlockingEventCounter,
+}
+
+impl BlockingEventEnricher {
+    pub async fn async_new(system_refresh: Duration) -> Self {
+        Self {
+            system: BlockingSystemInfo::async_new(system_refresh).await,
+            counter: BlockingEventCounter::new(),
+        }
+    }
+}

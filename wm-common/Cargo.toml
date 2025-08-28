@@ -7,6 +7,7 @@ repository = "https://github.com/Serious-senpai/windows-monitor"
 license = "GPL-2.0-or-later"
 
 [dependencies]
+chrono = { workspace = true }
 ferrisetw = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
