@@ -1,10 +1,11 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::error::Error;
 use std::fs::File;
 use std::io;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Instant;
 
 use http_body_util::combinators::BoxBody;
 use hyper::StatusCode;
@@ -25,6 +26,7 @@ use crate::configuration::Configuration;
 use crate::elastic::ElasticsearchWrapper;
 use crate::responses::ResponseBuilder;
 use crate::routes::abc::Service;
+use crate::routes::count::CountService;
 use crate::routes::health_check::HealthCheckService;
 use crate::routes::trace::TraceService;
 
@@ -32,6 +34,7 @@ pub struct App {
     _config: Arc<Configuration>,
     _services: HashMap<String, Arc<dyn Service>>,
     _elastic: Mutex<Option<Arc<ElasticsearchWrapper>>>,
+    pub eps_queue: Mutex<VecDeque<Instant>>,
 }
 
 impl App {
@@ -61,6 +64,7 @@ impl App {
         let mut services = HashMap::new();
 
         for service in [
+            Arc::new(CountService {}) as Arc<dyn Service>,
             Arc::new(HealthCheckService {}) as Arc<dyn Service>,
             Arc::new(TraceService {}) as Arc<dyn Service>,
         ] {
@@ -71,6 +75,7 @@ impl App {
             _config: config,
             _services: services,
             _elastic: Mutex::new(None),
+            eps_queue: Mutex::new(VecDeque::new()),
         };
         let _ = this.elastic().await; // Pre-initialize Elasticsearch connection if possible
 

@@ -116,7 +116,7 @@ impl Connector {
                 if let Err(e) = self
                     ._http
                     .api()
-                    .post("/trace")
+                    .post("/count")
                     .body(compressed)
                     .send()
                     .await

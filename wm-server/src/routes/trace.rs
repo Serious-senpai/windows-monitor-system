@@ -1,5 +1,6 @@
 use std::io;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use async_compression::tokio::bufread::ZstdDecoder;
 use async_trait::async_trait;
@@ -10,7 +11,6 @@ use http_body_util::combinators::BoxBody;
 use hyper::body::{Bytes, Incoming};
 use hyper::{Method, Request, Response, StatusCode};
 use log::{debug, error};
-use serde_json::Value;
 use tokio::io::AsyncReadExt;
 use tokio_util::io::StreamReader;
 use wm_common::schema::event::CapturedEventRecord;
@@ -50,6 +50,24 @@ impl Service for TraceService {
                     buffer.len(),
                     data.len()
                 );
+
+                {
+                    let mut eps = app.eps_queue.lock().await;
+                    let now = Instant::now();
+                    eps.push_back(now);
+
+                    let before = now - Duration::from_secs(1);
+                    while let Some(&front) = eps.front() {
+                        if front < before {
+                            eps.pop_front();
+                        } else {
+                            break;
+                        }
+                    }
+
+                    debug!("EPS = {}", eps.len());
+                }
+
                 match app.elastic().await {
                     Some(elastic) => {
                         let mut body = vec![];
@@ -60,7 +78,7 @@ impl Service for TraceService {
                             body.push(format!("{}\n", serde_json::to_string(&event).unwrap()));
                         }
 
-                        match elastic
+                        if let Err(e) = elastic
                             .client()
                             .bulk(BulkParts::Index(
                                 "logs-endpoint.events.windows-monitor-original-test",
@@ -69,16 +87,8 @@ impl Service for TraceService {
                             .send()
                             .await
                         {
-                            Ok(response) => {
-                                debug!(
-                                    "{} {:?}",
-                                    response.status_code(),
-                                    response.json::<Value>().await
-                                );
-                            }
-                            Err(e) => {
-                                error!("{e}");
-                            }
+                            error!("{e}");
+                            return ResponseBuilder::default(StatusCode::SERVICE_UNAVAILABLE);
                         }
 
                         return ResponseBuilder::empty(StatusCode::NO_CONTENT);
