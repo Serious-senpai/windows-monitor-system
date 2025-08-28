@@ -9,10 +9,11 @@ use async_trait::async_trait;
 use ferrisetw::trace::{KernelTrace, TraceBuilder, TraceTrait, stop_trace_by_name};
 use log::{debug, error};
 use tokio::sync::{Mutex, RwLock, mpsc};
-use tokio::{fs, task};
+use tokio::task;
 use wm_common::error::RuntimeError;
 use wm_common::schema::event::CapturedEventRecord;
 
+use crate::backup::Backup;
 use crate::configuration::Configuration;
 use crate::module::Module;
 use crate::module::tracer::enricher::BlockingEventEnricher;
@@ -28,7 +29,7 @@ pub struct EventTracer {
     _sender: mpsc::Sender<Arc<CapturedEventRecord>>,
     _trace: RwLock<Option<KernelTrace>>,
     _running: Mutex<bool>,
-    _backup: Arc<Mutex<fs::File>>,
+    _backup: Arc<Mutex<Backup>>,
     _enricher: Arc<BlockingRwLock<BlockingEventEnricher>>,
 }
 
@@ -36,7 +37,7 @@ impl EventTracer {
     pub async fn async_new(
         configuration: Arc<Configuration>,
         sender: mpsc::Sender<Arc<CapturedEventRecord>>,
-        backup: Arc<Mutex<fs::File>>,
+        backup: Arc<Mutex<Backup>>,
     ) -> Self
     where
         Self: Sized,

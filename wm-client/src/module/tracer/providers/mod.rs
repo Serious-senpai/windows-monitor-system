@@ -13,11 +13,10 @@ use ferrisetw::provider::kernel_providers::KernelProvider;
 use ferrisetw::trace::{KernelTrace, TraceBuilder};
 use ferrisetw::{EventRecord, SchemaLocator};
 use log::{debug, error, warn};
-use tokio::fs;
-use tokio::io::AsyncWriteExt;
 use tokio::sync::{Mutex, mpsc};
 use wm_common::schema::event::{CapturedEventRecord, Event};
 
+use crate::backup::Backup;
 use crate::module::tracer::enricher::BlockingEventEnricher;
 
 pub trait ProviderWrapper: Send + Sync {
@@ -42,7 +41,7 @@ pub trait ProviderWrapper: Send + Sync {
         trace: TraceBuilder<KernelTrace>,
         sender: mpsc::Sender<Arc<CapturedEventRecord>>,
         enricher: Arc<BlockingRwLock<BlockingEventEnricher>>,
-        backup: Arc<Mutex<fs::File>>,
+        backup: Arc<Mutex<Backup>>,
     ) -> TraceBuilder<KernelTrace>
     where
         Self: 'static,
@@ -73,19 +72,8 @@ pub trait ProviderWrapper: Send + Sync {
 
                                     let backup = backup.clone();
                                     tokio::spawn(async move {
-                                        let mut file = backup.lock().await;
-                                        let _ = file.write_u8(b'[').await;
-                                        if let Err(e) = file
-                                            .write_all(
-                                                serde_json::to_string(&data).unwrap().as_bytes(),
-                                            )
-                                            .await
-                                        {
-                                            error!("Unable to backup. Event is lost: {e}");
-                                        }
-
-                                        let _ = file.write_u8(b']').await;
-                                        let _ = file.write_u8(b'\n').await;
+                                        let mut backup = backup.lock().await;
+                                        backup.write_one(&data).await;
                                     });
                                 }
                             }

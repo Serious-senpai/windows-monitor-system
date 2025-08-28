@@ -6,6 +6,7 @@ use tokio::fs;
 use tokio::sync::{Mutex, mpsc};
 use wm_common::credential::CredentialManager;
 
+use crate::backup::Backup;
 use crate::configuration::Configuration;
 use crate::http::HttpClient;
 use crate::module::Module;
@@ -31,11 +32,11 @@ impl Agent {
         }
 
         let backup_path = Self::_get_log_file_path(config.clone(), index);
-        let backup = Arc::new(Mutex::new(
+        let backup = Arc::new(Mutex::new(Backup::new(
             fs::File::create(&backup_path)
                 .await
                 .expect("Failed to create backup file"),
-        ));
+        )));
 
         let http = Arc::new(HttpClient::new(&config, password));
         let (sender, receiver) = mpsc::channel(config.message_queue_limit);

@@ -6,14 +6,14 @@ use async_compression::Level;
 use async_compression::tokio::bufread::ZstdEncoder;
 use async_trait::async_trait;
 use log::{debug, error};
-use tokio::fs;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncReadExt;
 use tokio::sync::{Mutex, RwLock, Semaphore, mpsc};
 use tokio::task::JoinHandle;
 use tokio::time::{sleep, timeout};
 use wm_common::error::RuntimeError;
 use wm_common::schema::event::CapturedEventRecord;
 
+use crate::backup::Backup;
 use crate::configuration::Configuration;
 use crate::http::HttpClient;
 use crate::module::Module;
@@ -22,7 +22,7 @@ pub struct Connector {
     _configuration: Arc<Configuration>,
     _receiver: Mutex<mpsc::Receiver<Arc<CapturedEventRecord>>>,
     _running: RwLock<bool>,
-    _backup: Arc<Mutex<fs::File>>,
+    _backup: Arc<Mutex<Backup>>,
 
     _http: Arc<HttpClient>,
     _http_semaphore: Semaphore,
@@ -35,7 +35,7 @@ impl Connector {
     pub async fn async_new(
         configuration: Arc<Configuration>,
         receiver: mpsc::Receiver<Arc<CapturedEventRecord>>,
-        backup: Arc<Mutex<fs::File>>,
+        backup: Arc<Mutex<Backup>>,
         http: Arc<HttpClient>,
     ) -> Self
     where
@@ -139,10 +139,8 @@ impl Connector {
                 );
                 let mut backup = self._backup.lock().await;
 
-                if let Err(e) = backup.write(raw_payload).await {
-                    error!("Failed to backup data: {e}");
-                }
-                let _ = backup.write(b"\n").await;
+                backup.write_raw(raw_payload).await;
+                backup.write_raw(b"\n").await;
             }
         }
 
