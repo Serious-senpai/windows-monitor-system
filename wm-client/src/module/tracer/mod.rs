@@ -57,7 +57,7 @@ impl EventTracer {
         }
     }
 
-    fn _trace_builder(self: Arc<Self>) -> TraceBuilder<KernelTrace> {
+    fn _trace_builder(self: &Arc<Self>) -> TraceBuilder<KernelTrace> {
         let mut tracer = KernelTrace::new().named(self._configuration.trace_name.clone());
         let wrappers: Vec<Arc<dyn ProviderWrapper>> = vec![
             Arc::new(FileProviderWrapper::new()),
@@ -105,7 +105,6 @@ impl Module for EventTracer {
 
         let _ = stop_trace_by_name(&self._configuration.trace_name);
         let (trace, handle) = self
-            .clone()
             ._trace_builder()
             .start()
             .map_err(|e| RuntimeError::new(format!("Unable to start kernel trace: {e:?}")))?;

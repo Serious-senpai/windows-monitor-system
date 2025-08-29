@@ -86,7 +86,7 @@ impl Connector {
         .await
     }
 
-    async fn _send_payload_utils(self: Arc<Self>, raw_payload: &mut Vec<u8>) {
+    async fn _send_payload_utils(self: &Arc<Self>, raw_payload: &mut Vec<u8>) {
         if raw_payload.len() == 1 {
             return;
         }
@@ -183,7 +183,7 @@ impl Module for Connector {
                         if raw_payload.len() + payload.len() + 1
                             > self._configuration.event_post.accumulated_batch_threshold
                         {
-                            self.clone()._send_payload_utils(&mut raw_payload).await;
+                            self._send_payload_utils(&mut raw_payload).await;
                         }
 
                         raw_payload.extend_from_slice(&payload);
@@ -195,7 +195,7 @@ impl Module for Connector {
                 },
                 Ok(None) => break,
                 Err(_) => {
-                    self.clone()._send_payload_utils(&mut raw_payload).await;
+                    self._send_payload_utils(&mut raw_payload).await;
                 }
             }
         }

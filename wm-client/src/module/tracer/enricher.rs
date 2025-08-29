@@ -91,7 +91,7 @@ impl BlockingEventCounter {
             if self._eps == 0.0 {
                 1.0 / elapsed
             } else {
-                1.0 + self._eps * (1.0 - elapsed)
+                self._eps.mul_add(1.0 - elapsed, 1.0)
             }
         } else {
             1.0 / elapsed

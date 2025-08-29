@@ -100,7 +100,7 @@ impl App {
         }
     }
 
-    pub async fn run(self: Arc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn run(self: &Arc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
         let addr = SocketAddr::from(([0, 0, 0, 0], self._config.port));
         let certs =
             Self::_load_certs(&self._config.certificate).expect("Failed to load certificate");
