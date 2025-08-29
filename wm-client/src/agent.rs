@@ -57,7 +57,7 @@ impl Agent {
     fn _get_log_file_path(configuration: Arc<Configuration>, index: i32) -> PathBuf {
         configuration
             .backup_directory
-            .join(format!("backup-{index}.jsonl"))
+            .join(format!("backup-{index}.zstd"))
     }
 
     pub fn read_password(config: &Configuration) -> String {

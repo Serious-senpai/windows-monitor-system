@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::mem;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -11,6 +12,7 @@ use tokio::sync::{Mutex, RwLock, Semaphore, mpsc};
 use tokio::task::JoinHandle;
 use tokio::time::{sleep, timeout};
 use wm_common::error::RuntimeError;
+use wm_common::pool::Pool;
 use wm_common::schema::event::CapturedEventRecord;
 
 use crate::backup::Backup;
@@ -29,6 +31,8 @@ pub struct Connector {
 
     _errors_count: Arc<RwLock<usize>>,
     _reconnect_task: JoinHandle<()>,
+
+    _buffer_pool: Arc<Pool<Vec<u8>>>,
 }
 
 impl Connector {
@@ -71,6 +75,7 @@ impl Connector {
             _http_semaphore: Semaphore::new(concurrency_limit),
             _errors_count: errors_count,
             _reconnect_task: reconnect_task,
+            _buffer_pool: Arc::new(Pool::new(concurrency_limit, |_| vec![])),
         }
     }
 
@@ -94,32 +99,28 @@ impl Connector {
         raw_payload.pop(); // Remove trailing comma
         raw_payload.push(b']');
 
-        let mut compressor = ZstdEncoder::with_quality(
-            raw_payload.as_slice(),
-            Level::Precise(self._configuration.zstd_compression_level),
-        );
+        let mut write_to_backup = self._disconnected().await;
+        if !write_to_backup {
+            let mut compressor = ZstdEncoder::with_quality(
+                raw_payload.as_slice(),
+                Level::Precise(self._configuration.zstd_compression_level),
+            );
+            let mut compressed = self._buffer_pool.acquire().await;
 
-        // TODO: Allocate a certain number of buffers beforehand and reuse them via a pool with size = semaphore limit.
-        let mut compressed = vec![];
-
-        if let Err(e) = compressor.read_to_end(&mut compressed).await {
-            error!("Unable to compress data: {e}");
-        } else {
-            let mut write_to_backup = self._disconnected().await;
-            if !write_to_backup && let Ok(_) = self._http_semaphore.acquire().await {
+            if let Err(e) = compressor.read_to_end(&mut compressed).await {
+                error!("Unable to compress data: {e}");
+            } else {
                 debug!(
                     "Sending {} bytes of uncompressed data (compressed to {} bytes)",
                     raw_payload.len(),
                     compressed.len()
                 );
 
-                if let Err(e) = self
-                    ._http
-                    .api()
-                    .post("/count")
-                    .body(compressed)
-                    .send()
-                    .await
+                let mut to_send = vec![];
+                mem::swap(&mut to_send, &mut compressed);
+
+                if let Ok(_) = self._http_semaphore.acquire().await
+                    && let Err(e) = self._http.api().post("/count").body(to_send).send().await
                 {
                     error!(
                         "Failed to send trace event to server: {e:?}, writing to backup instead"
@@ -131,17 +132,17 @@ impl Connector {
                     write_to_backup = true;
                 }
             }
+        }
 
-            if write_to_backup {
-                debug!(
-                    "Backing up {} bytes of uncompressed data",
-                    raw_payload.len()
-                );
-                let mut backup = self._backup.lock().await;
+        if write_to_backup {
+            debug!(
+                "Backing up {} bytes of uncompressed data",
+                raw_payload.len()
+            );
+            let mut backup = self._backup.lock().await;
 
-                backup.write_raw(raw_payload).await;
-                backup.write_raw(b"\n").await;
-            }
+            backup.write_raw(raw_payload).await;
+            backup.write_raw(b"\n").await;
         }
 
         raw_payload.clear();
