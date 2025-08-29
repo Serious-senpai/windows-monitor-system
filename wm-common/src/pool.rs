@@ -9,7 +9,7 @@ pub struct PoolGuard<'a, T> {
     _item: OwnedMutexGuard<T>,
 }
 
-impl<'a, T> Deref for PoolGuard<'a, T> {
+impl<T> Deref for PoolGuard<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -17,13 +17,13 @@ impl<'a, T> Deref for PoolGuard<'a, T> {
     }
 }
 
-impl<'a, T> DerefMut for PoolGuard<'a, T> {
+impl<T> DerefMut for PoolGuard<'_, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self._item
     }
 }
 
-impl<'a, T> Drop for PoolGuard<'a, T> {
+impl<T> Drop for PoolGuard<'_, T> {
     fn drop(&mut self) {
         self._pool
             ._sender
@@ -48,7 +48,7 @@ impl<T> Pool<T> {
             sender.try_send(item).expect("Failed to initialize pool");
         }
 
-        Pool {
+        Self {
             _sender: sender,
             _receiver: Mutex::new(receiver),
         }
