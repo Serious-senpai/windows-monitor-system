@@ -17,6 +17,7 @@ pub struct Agent {
     _config: Arc<Configuration>,
     _modules: Vec<Arc<dyn Module>>,
     _http: Arc<HttpClient>,
+    _backup: Arc<Mutex<Backup>>,
 }
 
 impl Agent {
@@ -51,6 +52,7 @@ impl Agent {
                 ),
             ],
             _http: http,
+            _backup: backup,
         }
     }
 
@@ -104,5 +106,7 @@ impl Agent {
                 error!("Module {} stopped with error: {e}", module.name());
             }
         }
+
+        self._backup.lock().await.flush().await;
     }
 }

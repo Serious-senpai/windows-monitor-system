@@ -112,7 +112,7 @@ impl Connector {
             let mut compressed = self._buffer_pool.acquire().await;
             compressed.clear();
 
-            if let Err(e) = compressor.read(&mut **compressed).await {
+            if let Err(e) = compressor.read(&mut compressed).await {
                 error!("Unable to compress data: {e}");
             } else {
                 debug!(
@@ -121,6 +121,7 @@ impl Connector {
                     compressed.len()
                 );
 
+                #[allow(clippy::redundant_pattern_matching)] // required to acquire semaphore
                 if let Ok(_) = self._http_semaphore.acquire().await {
                     // Connection state may have been updated while waiting for the semaphore
                     if self._disconnected().await {

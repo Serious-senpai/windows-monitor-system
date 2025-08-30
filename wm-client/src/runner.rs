@@ -52,16 +52,18 @@ impl AgentRunner {
         let password = Agent::read_password(&self._configuration);
         let agent = Arc::new(Agent::async_new(self._configuration.clone(), &password).await);
 
-        let ptr = agent.clone();
+        let agent_cloned = agent.clone();
         let mut agent_handle = tokio::spawn(async move {
-            ptr.run().await;
+            agent_cloned.run().await;
         });
 
         tokio::select! {
             _ = signal::ctrl_c() => {
                 info!("Received Ctrl+C signal");
             },
-            _ = &mut agent_handle => (),
+            _ = &mut agent_handle => {
+                info!("Agent task completed itself");
+            },
             _ = self._service_stopped.wait() => {
                 info!("Service stopped");
             }

@@ -34,4 +34,9 @@ impl Backup {
     pub async fn write_raw(&mut self, data: &[u8]) {
         self._zstd.write_all(data).await.unwrap();
     }
+
+    pub async fn flush(&mut self) {
+        self._zstd.flush().await.unwrap();
+        self._zstd.get_mut().flush().await.unwrap();
+    }
 }
