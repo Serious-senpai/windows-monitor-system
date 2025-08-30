@@ -5,7 +5,7 @@ use std::io;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use http_body_util::combinators::BoxBody;
 use hyper::StatusCode;
@@ -180,5 +180,26 @@ impl App {
         }
 
         Ok(())
+    }
+
+    pub async fn count_eps(self: &Arc<Self>, count: usize) -> usize {
+        let mut eps = self.eps_queue.lock().await;
+        let now = Instant::now();
+
+        eps.reserve(count);
+        for _ in 0..count {
+            eps.push_back(now);
+        }
+
+        let before = now - Duration::from_secs(1);
+        while let Some(&front) = eps.front() {
+            if front < before {
+                eps.pop_front();
+            } else {
+                break;
+            }
+        }
+
+        eps.len()
     }
 }

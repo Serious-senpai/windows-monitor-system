@@ -1,6 +1,5 @@
 use std::io;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 use async_compression::tokio::bufread::ZstdDecoder;
 use async_trait::async_trait;
@@ -51,22 +50,7 @@ impl Service for TraceService {
                     data.len()
                 );
 
-                {
-                    let mut eps = app.eps_queue.lock().await;
-                    let now = Instant::now();
-                    eps.push_back(now);
-
-                    let before = now - Duration::from_secs(1);
-                    while let Some(&front) = eps.front() {
-                        if front < before {
-                            eps.pop_front();
-                        } else {
-                            break;
-                        }
-                    }
-
-                    debug!("EPS = {}", eps.len());
-                }
+                app.count_eps(data.len()).await;
 
                 match app.elastic().await {
                     Some(elastic) => {
