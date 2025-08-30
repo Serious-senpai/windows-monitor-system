@@ -1,14 +1,15 @@
+use std::env;
 use std::error::Error;
-use std::fs::File;
-use std::io::Write;
+use std::fs::File as BlockingFile;
+use std::io::{Write, stdout};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use std::{env, io};
 
+use async_compression::tokio::write::ZstdDecoder;
 use clap::Parser;
 use config_file::FromConfigFile;
 use log::{debug, info};
-use tokio::{fs, task};
+use tokio::{fs, io, task};
 use windows::Win32::System::Services::SC_MANAGER_ALL_ACCESS;
 use wm_client::cli::{Arguments, ServiceAction};
 use wm_client::configuration::Configuration;
@@ -42,7 +43,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     initialize_logger(
         configuration.log_level,
-        File::create(log_directory.join(format!(
+        BlockingFile::create(log_directory.join(format!(
                 "wm-client-{}.log",
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)
@@ -51,7 +52,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     )?;
     debug!("Initialized logger");
 
-    match arguments.action {
+    match arguments.command {
         ServiceAction::Create => {
             info!("Creating new service {}", configuration.service_name);
 
@@ -96,7 +97,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             info!("Done");
         }
         ServiceAction::Password => task::spawn_blocking(move || {
-            let mut stdout = io::stdout();
+            let mut stdout = stdout();
             print!("Password (hidden)>");
             let _ = stdout.flush();
 
@@ -111,6 +112,13 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         })
         .await
         .expect("Unable to read password"),
+        ServiceAction::Zstd { source, dest } => {
+            let mut source_file = fs::File::open(&source).await?;
+            let mut dest_file = fs::File::create_new(&dest).await?;
+
+            let mut decompressor = ZstdDecoder::new(&mut dest_file);
+            io::copy(&mut source_file, &mut decompressor).await?;
+        }
     };
 
     Ok(())
