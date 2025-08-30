@@ -6,11 +6,11 @@ zstd_compression_level: 3
 system_refresh_interval_seconds: 3.0
 backup_directory: target/backup
 
-log_level: Debug
+log_level: Info
 message_queue_limit: 1000
 dns_resolver:
   localhost: 127.0.0.1
 
 event_post:
-  concurrency_limit: 10
-  accumulated_batch_threshold: 51200
+  concurrency_limit: 5
+  flush_limit: 102400

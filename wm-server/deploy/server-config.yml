@@ -1,5 +1,5 @@
 port: 12110
-log_level: Debug
+log_level: Info
 certificate: cert/server.pem
 private_key: cert/server.rsa
 

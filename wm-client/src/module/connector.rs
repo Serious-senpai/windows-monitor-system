@@ -1,11 +1,11 @@
 use std::error::Error;
-use std::mem;
 use std::sync::Arc;
 use std::time::Duration;
 
 use async_compression::Level;
 use async_compression::tokio::bufread::ZstdEncoder;
 use async_trait::async_trait;
+use bytes::BytesMut;
 use log::{debug, error};
 use tokio::io::AsyncReadExt;
 use tokio::sync::{Mutex, RwLock, Semaphore, mpsc};
@@ -32,7 +32,7 @@ pub struct Connector {
     _errors_count: Arc<RwLock<usize>>,
     _reconnect_task: JoinHandle<()>,
 
-    _buffer_pool: Arc<Pool<Vec<u8>>>,
+    _buffer_pool: Arc<Pool<BytesMut>>,
 }
 
 impl Connector {
@@ -75,7 +75,9 @@ impl Connector {
             _http_semaphore: Semaphore::new(concurrency_limit),
             _errors_count: errors_count,
             _reconnect_task: reconnect_task,
-            _buffer_pool: Arc::new(Pool::new(concurrency_limit, |_| vec![])),
+            _buffer_pool: Arc::new(Pool::new(concurrency_limit, |_| {
+                BytesMut::with_capacity(configuration.event_post.flush_limit)
+            })),
         }
     }
 
@@ -91,6 +93,8 @@ impl Connector {
         .await
     }
 
+    /// Input must contain only the opening bracket `[` OR an incomplete JSON array with a trailing comma
+    /// e.g. `[1, 2, 3,`
     async fn _send_payload_utils(self: &Arc<Self>, raw_payload: &mut Vec<u8>) {
         if raw_payload.len() == 1 {
             return;
@@ -106,8 +110,9 @@ impl Connector {
                 Level::Precise(self._configuration.zstd_compression_level),
             );
             let mut compressed = self._buffer_pool.acquire().await;
+            compressed.clear();
 
-            if let Err(e) = compressor.read_to_end(&mut compressed).await {
+            if let Err(e) = compressor.read(&mut **compressed).await {
                 error!("Unable to compress data: {e}");
             } else {
                 debug!(
@@ -116,20 +121,27 @@ impl Connector {
                     compressed.len()
                 );
 
-                let mut to_send = vec![];
-                mem::swap(&mut to_send, &mut compressed);
+                if let Ok(_) = self._http_semaphore.acquire().await {
+                    // Connection state may have been updated while waiting for the semaphore
+                    if self._disconnected().await {
+                        write_to_backup = true;
+                    } else if let Err(e) = self
+                        ._http
+                        .api()
+                        .post("/count")
+                        .body(compressed.clone().freeze())
+                        .send()
+                        .await
+                    {
+                        error!(
+                            "Failed to send trace event to server: {e:?}, writing to backup instead"
+                        );
 
-                if let Ok(_) = self._http_semaphore.acquire().await
-                    && let Err(e) = self._http.api().post("/count").body(to_send).send().await
-                {
-                    error!(
-                        "Failed to send trace event to server: {e:?}, writing to backup instead"
-                    );
-
-                    let mut errors_count = self._errors_count.write().await;
-                    *errors_count =
-                        (*errors_count + 1).min(self._configuration.event_post.concurrency_limit);
-                    write_to_backup = true;
+                        let mut errors_count = self._errors_count.write().await;
+                        *errors_count = (*errors_count + 1)
+                            .min(self._configuration.event_post.concurrency_limit);
+                        write_to_backup = true;
+                    }
                 }
             }
         }
@@ -168,8 +180,7 @@ impl Module for Connector {
 
         debug!("Running Connector");
 
-        let mut raw_payload =
-            Vec::with_capacity(self._configuration.event_post.accumulated_batch_threshold);
+        let mut raw_payload = Vec::with_capacity(self._configuration.event_post.flush_limit);
         raw_payload.push(b'[');
 
         let mut receiver = self._receiver.lock().await;
@@ -179,21 +190,18 @@ impl Module for Connector {
             }
 
             match timeout(Duration::from_secs(1), receiver.recv()).await {
-                Ok(Some(event)) => match serde_json::to_vec(&event) {
-                    Ok(payload) => {
-                        if raw_payload.len() + payload.len() + 1
-                            > self._configuration.event_post.accumulated_batch_threshold
-                        {
+                Ok(Some(event)) => {
+                    if let Err(e) = serde_json::to_writer(&mut raw_payload, &event) {
+                        error!("Failed to serialize {event:?}: {e}");
+                        raw_payload.clear();
+                        raw_payload.push(b'[');
+                    } else {
+                        raw_payload.push(b',');
+                        if raw_payload.len() > self._configuration.event_post.flush_limit {
                             self._send_payload_utils(&mut raw_payload).await;
                         }
-
-                        raw_payload.extend_from_slice(&payload);
-                        raw_payload.push(b',');
                     }
-                    Err(e) => {
-                        error!("Failed to serialize {event:?}: {e}");
-                    }
-                },
+                }
                 Ok(None) => break,
                 Err(_) => {
                     self._send_payload_utils(&mut raw_payload).await;

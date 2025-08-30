@@ -9,7 +9,7 @@ use wm_common::logger::LogLevel;
 #[derive(Deserialize, Serialize)]
 pub struct EventPostSettings {
     pub concurrency_limit: usize,
-    pub accumulated_batch_threshold: usize,
+    pub flush_limit: usize,
 }
 
 #[derive(Deserialize, Serialize)]
