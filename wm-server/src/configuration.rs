@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use elasticsearch::http::Url;
 use serde::{Deserialize, Serialize};
+use url::Url;
 use wm_common::logger::LogLevel;
 
 #[derive(Deserialize, Serialize)]

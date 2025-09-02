@@ -117,7 +117,9 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             let mut dest_file = fs::File::create_new(&dest).await?;
 
             let mut decompressor = ZstdDecoder::new(&mut dest_file);
-            io::copy(&mut source_file, &mut decompressor).await?;
+            io::copy(&mut source_file, &mut decompressor)
+                .await
+                .expect("Failure during decompression");
         }
     };
 

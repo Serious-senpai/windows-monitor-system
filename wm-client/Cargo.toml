@@ -21,7 +21,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 sysinfo = "^0.37.0"
 tokio = { workspace = true }
-url = { version = "^2.5.4", features = ["serde"] }
+url = { workspace = true }
 windows = { workspace = true }
 windows-service-detector = "^0.1.0"
 windows-services = "^0.25.0"
