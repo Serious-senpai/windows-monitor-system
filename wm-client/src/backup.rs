@@ -31,8 +31,12 @@ impl Backup {
         self._zstd.write_u8(b'\n').await.unwrap();
     }
 
-    pub async fn write_raw(&mut self, data: &[u8]) {
-        self._zstd.write_all(data).await.unwrap();
+    pub async fn write_raw<const COMPRESSED: bool>(&mut self, data: &[u8]) {
+        if COMPRESSED {
+            self._zstd.write_all(data).await.unwrap();
+        } else {
+            self._zstd.get_mut().write_all(data).await.unwrap();
+        }
     }
 
     pub async fn flush(&mut self) {

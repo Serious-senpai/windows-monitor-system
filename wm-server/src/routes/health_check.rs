@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -20,6 +21,7 @@ impl Service for HealthCheckService {
     async fn serve(
         &self,
         _: Arc<App>,
+        _: SocketAddr,
         _: Request<Incoming>,
     ) -> Response<BoxBody<Bytes, hyper::Error>> {
         ResponseBuilder::empty(StatusCode::NO_CONTENT)

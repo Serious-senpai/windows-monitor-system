@@ -11,7 +11,6 @@ license = "GPL-2.0-or-later"
 async-compression = { workspace = true }
 async-trait = { workspace = true }
 bytes = "^1.10.1"
-chrono = { workspace = true }
 clap = { version = "^4.5.42", features = ["cargo", "derive"] }
 config-file = { workspace = true }
 ferrisetw = { workspace = true }
@@ -20,9 +19,9 @@ reqwest = { version = "^0.12.23", features = ["json", "native-tls", "stream"] }
 rpassword = "^7.4.0"
 serde = { workspace = true }
 serde_json = { workspace = true }
-sysinfo = { workspace = true }
+sysinfo = "^0.37.0"
 tokio = { workspace = true }
-url = { workspace = true }
+url = { version = "^2.5.4", features = ["serde"] }
 windows = { workspace = true }
 windows-service-detector = "^0.1.0"
 windows-services = "^0.25.0"

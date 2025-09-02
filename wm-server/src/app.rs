@@ -2,7 +2,7 @@ use std::collections::{HashMap, VecDeque};
 use std::error::Error;
 use std::fs::File;
 use std::io;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -18,7 +18,7 @@ use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::server::WebPkiClientVerifier;
 use rustls::{RootCertStore, ServerConfig};
 use tokio::net::TcpListener;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, OnceCell};
 use tokio::{signal, task};
 use tokio_rustls::TlsAcceptor;
 
@@ -26,15 +26,14 @@ use crate::configuration::Configuration;
 use crate::elastic::ElasticsearchWrapper;
 use crate::responses::ResponseBuilder;
 use crate::routes::abc::Service;
-use crate::routes::count::CountService;
 use crate::routes::health_check::HealthCheckService;
 use crate::routes::trace::TraceService;
 
 pub struct App {
     _config: Arc<Configuration>,
     _services: HashMap<String, Arc<dyn Service>>,
-    _elastic: Mutex<Option<Arc<ElasticsearchWrapper>>>,
-    pub eps_queue: Mutex<VecDeque<Instant>>,
+    _elastic: OnceCell<Arc<ElasticsearchWrapper>>,
+    _eps_queue: Mutex<HashMap<IpAddr, VecDeque<Instant>>>,
 }
 
 impl App {
@@ -64,7 +63,6 @@ impl App {
         let mut services = HashMap::new();
 
         for service in [
-            Arc::new(CountService {}) as Arc<dyn Service>,
             Arc::new(HealthCheckService {}) as Arc<dyn Service>,
             Arc::new(TraceService {}) as Arc<dyn Service>,
         ] {
@@ -74,8 +72,8 @@ impl App {
         let this = Self {
             _config: config,
             _services: services,
-            _elastic: Mutex::new(None),
-            eps_queue: Mutex::new(VecDeque::new()),
+            _elastic: OnceCell::new(),
+            _eps_queue: Mutex::new(HashMap::new()),
         };
         let _ = this.elastic().await; // Pre-initialize Elasticsearch connection if possible
 
@@ -83,20 +81,21 @@ impl App {
     }
 
     pub async fn elastic(&self) -> Option<Arc<ElasticsearchWrapper>> {
-        let mut lock = self._elastic.lock().await;
-        match lock.as_ref() {
-            Some(ptr) => Some(ptr.clone()),
-            None => match ElasticsearchWrapper::async_new(&self._config).await {
-                Ok(inner) => {
-                    let ptr = Arc::new(inner);
-                    *lock = Some(ptr.clone());
-                    Some(ptr)
-                }
-                Err(e) => {
-                    error!("Unable to connect to Elasticsearch: {e}");
-                    None
-                }
-            },
+        match self
+            ._elastic
+            .get_or_try_init(
+                async || match ElasticsearchWrapper::async_new(&self._config).await {
+                    Ok(inner) => Ok(Arc::new(inner)),
+                    Err(e) => Err(e),
+                },
+            )
+            .await
+        {
+            Ok(ptr) => Some(ptr.clone()),
+            Err(e) => {
+                error!("Unable to connect to Elasticsearch: {e}");
+                None
+            }
         }
     }
 
@@ -135,8 +134,8 @@ impl App {
                     info!("Received Ctrl+C signal");
                     break;
                 }
-                Ok((stream, _)) = listener.accept() => {
-                    debug!("New connection {}", stream.peer_addr()?);
+                Ok((stream, peer)) = listener.accept() => {
+                    debug!("New connection {}", peer);
                     let tls = tls.clone();
 
                     let ptr = self.clone();
@@ -148,7 +147,7 @@ impl App {
                         let ptr = ptr.clone();
                         async move {
                             let response = if let Some(service) = service {
-                                service.serve(ptr, request).await
+                                service.serve(ptr, peer, request).await
                             } else {
                                 ResponseBuilder::default(StatusCode::NOT_FOUND)
                             };
@@ -182,24 +181,25 @@ impl App {
         Ok(())
     }
 
-    pub async fn count_eps(self: &Arc<Self>, count: usize) -> usize {
-        let mut eps = self.eps_queue.lock().await;
+    pub async fn count_eps(self: &Arc<Self>, ip: IpAddr, count: usize) -> usize {
         let now = Instant::now();
+        let mut lock = self._eps_queue.lock().await;
+        let queue = lock.entry(ip).or_insert_with(VecDeque::new);
 
-        eps.reserve(count);
+        queue.reserve(count);
         for _ in 0..count {
-            eps.push_back(now);
+            queue.push_back(now);
         }
 
         let before = now - Duration::from_secs(1);
-        while let Some(&front) = eps.front() {
+        while let Some(&front) = queue.front() {
             if front < before {
-                eps.pop_front();
+                queue.pop_front();
             } else {
                 break;
             }
         }
 
-        eps.len()
+        queue.len()
     }
 }

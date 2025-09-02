@@ -13,7 +13,7 @@ struct _DefaultResponse {
 pub struct ResponseBuilder;
 
 impl ResponseBuilder {
-    pub fn response<T>(status: StatusCode, body: T) -> Response<BoxBody<Bytes, hyper::Error>>
+    pub fn json<T>(status: StatusCode, body: T) -> Response<BoxBody<Bytes, hyper::Error>>
     where
         T: Serialize,
     {
@@ -39,7 +39,7 @@ impl ResponseBuilder {
     where
         S: Into<String>,
     {
-        Self::response(
+        Self::json(
             status,
             _DefaultResponse {
                 error: status.is_client_error() || status.is_server_error(),

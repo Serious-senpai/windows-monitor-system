@@ -1,7 +1,6 @@
 use std::net::IpAddr;
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::schema::sysinfo::SystemInfo;
@@ -61,10 +60,6 @@ pub struct Event {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct CapturedEventRecord {
-    #[serde(rename = "@timestamp")]
-    pub timestamp: DateTime<Utc>,
     pub event: Event,
-    pub counter: u128,
-    pub eps: f64,
     pub system: Arc<SystemInfo>,
 }

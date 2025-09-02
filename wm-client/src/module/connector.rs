@@ -14,6 +14,7 @@ use tokio::time::{sleep, timeout};
 use wm_common::error::RuntimeError;
 use wm_common::pool::Pool;
 use wm_common::schema::event::CapturedEventRecord;
+use wm_common::schema::responses::TraceResponse;
 
 use crate::backup::Backup;
 use crate::configuration::Configuration;
@@ -103,22 +104,22 @@ impl Connector {
         raw_payload.pop(); // Remove trailing comma
         raw_payload.push(b']');
 
-        let mut write_to_backup = self._disconnected().await;
-        if !write_to_backup {
-            let mut compressor = ZstdEncoder::with_quality(
-                raw_payload.as_slice(),
-                Level::Precise(self._configuration.zstd_compression_level),
-            );
-            let mut compressed = self._buffer_pool.acquire().await;
-            compressed.clear();
+        let mut compressor = ZstdEncoder::with_quality(
+            raw_payload.as_slice(),
+            Level::Precise(self._configuration.zstd_compression_level),
+        );
+        let mut buffer = self._buffer_pool.acquire().await;
+        buffer.clear();
 
-            if let Err(e) = compressor.read(&mut compressed).await {
-                error!("Unable to compress data: {e}");
-            } else {
+        if let Err(e) = compressor.read_buf(&mut *buffer).await {
+            error!("Unable to compress data: {e}");
+        } else {
+            let mut write_to_backup = self._disconnected().await;
+            if !write_to_backup {
                 debug!(
                     "Sending {} bytes of uncompressed data (compressed to {} bytes)",
                     raw_payload.len(),
-                    compressed.len()
+                    buffer.len(),
                 );
 
                 #[allow(clippy::redundant_pattern_matching)] // required to acquire semaphore
@@ -126,36 +127,58 @@ impl Connector {
                     // Connection state may have been updated while waiting for the semaphore
                     if self._disconnected().await {
                         write_to_backup = true;
-                    } else if let Err(e) = self
-                        ._http
-                        .api()
-                        .post("/count")
-                        .body(compressed.clone().freeze())
-                        .send()
-                        .await
-                    {
-                        error!(
-                            "Failed to send trace event to server: {e:?}, writing to backup instead"
-                        );
+                    } else {
+                        let success = match self
+                            ._http
+                            .api()
+                            .post("/trace")
+                            .body(buffer.clone().freeze())
+                            .send()
+                            .await
+                        {
+                            Ok(response) => {
+                                response.status() == 200
+                                    && match response.json::<TraceResponse>().await {
+                                        Ok(data) => {
+                                            debug!("Server response {data:?}");
+                                            true
+                                        }
+                                        Err(e) => {
+                                            error!("Invalid server JSON response: {e}");
+                                            false
+                                        }
+                                    }
+                            }
+                            Err(e) => {
+                                error!(
+                                    "Failed to send trace event to server: {e:?}, writing to backup instead"
+                                );
+                                false
+                            }
+                        };
 
-                        let mut errors_count = self._errors_count.write().await;
-                        *errors_count = (*errors_count + 1)
-                            .min(self._configuration.event_post.concurrency_limit);
-                        write_to_backup = true;
+                        if !success {
+                            let mut errors_count = self._errors_count.write().await;
+                            *errors_count = (*errors_count + 1)
+                                .min(self._configuration.event_post.concurrency_limit);
+                            write_to_backup = true;
+                        }
                     }
                 }
             }
-        }
 
-        if write_to_backup {
-            debug!(
-                "Backing up {} bytes of uncompressed data",
-                raw_payload.len()
-            );
-            let mut backup = self._backup.lock().await;
+            if write_to_backup {
+                debug!(
+                    "Backing up {} bytes of uncompressed data (compressed to {} bytes)",
+                    raw_payload.len(),
+                    buffer.len(),
+                );
 
-            backup.write_raw(raw_payload).await;
-            backup.write_raw(b"\n").await;
+                let mut backup = self._backup.lock().await;
+
+                backup.write_raw::<false>(&buffer).await;
+                backup.write_raw::<true>(b"\n").await;
+            }
         }
 
         raw_payload.clear();

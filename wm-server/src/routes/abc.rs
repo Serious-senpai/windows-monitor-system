@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -13,6 +14,7 @@ pub trait Service: Send + Sync {
     async fn serve(
         &self,
         app: Arc<App>,
+        peer: SocketAddr,
         request: Request<Incoming>,
     ) -> Response<BoxBody<Bytes, hyper::Error>>;
 }

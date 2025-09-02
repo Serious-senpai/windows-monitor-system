@@ -1,8 +1,10 @@
 use std::io;
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use async_compression::tokio::bufread::ZstdDecoder;
 use async_trait::async_trait;
+use chrono::Utc;
 use elasticsearch::BulkParts;
 use futures_util::stream::TryStreamExt;
 use http_body_util::BodyExt;
@@ -13,6 +15,8 @@ use log::{debug, error};
 use tokio::io::AsyncReadExt;
 use tokio_util::io::StreamReader;
 use wm_common::schema::event::CapturedEventRecord;
+use wm_common::schema::responses::TraceResponse;
+use wm_generated::ecs::{ECS, ECS_Host, ECS_Host_Os};
 
 use crate::app::App;
 use crate::responses::ResponseBuilder;
@@ -29,6 +33,7 @@ impl Service for TraceService {
     async fn serve(
         &self,
         app: Arc<App>,
+        peer: SocketAddr,
         request: Request<Incoming>,
     ) -> Response<BoxBody<Bytes, hyper::Error>> {
         if request.method() == Method::POST {
@@ -50,24 +55,34 @@ impl Service for TraceService {
                     data.len()
                 );
 
-                app.count_eps(data.len()).await;
+                let eps = app.count_eps(peer.ip(), data.len()).await;
 
                 match app.elastic().await {
                     Some(elastic) => {
                         let mut body = vec![];
 
-                        let create_request = "{\"create\":{}}\n".to_string();
                         for event in data {
-                            body.push(create_request.clone());
-                            body.push(format!("{}\n", serde_json::to_string(&event).unwrap()));
+                            body.extend_from_slice(b"{\"create\":{}}\n");
+
+                            let mut ecs = ECS::new(Utc::now());
+                            let mut os = ECS_Host_Os::new();
+                            os.name = Some(event.system.os.name.clone());
+
+                            let mut host = ECS_Host::new();
+                            host.os = Some(os);
+                            ecs.host = Some(host);
+
+                            serde_json::to_writer(&mut body, &ecs).unwrap();
+                            body.push(b'\n');
                         }
 
                         if let Err(e) = elastic
                             .client()
-                            .bulk(BulkParts::Index(
-                                "logs-endpoint.events.windows-monitor-original-test",
-                            ))
-                            .body(body)
+                            .bulk(BulkParts::Index(&format!(
+                                "events.windows-monitor-ecs-{}",
+                                peer.ip()
+                            )))
+                            .body(vec![body])
                             .send()
                             .await
                         {
@@ -75,7 +90,7 @@ impl Service for TraceService {
                             return ResponseBuilder::default(StatusCode::SERVICE_UNAVAILABLE);
                         }
 
-                        return ResponseBuilder::empty(StatusCode::NO_CONTENT);
+                        return ResponseBuilder::json(StatusCode::OK, TraceResponse { eps });
                     }
                     None => {
                         return ResponseBuilder::default(StatusCode::SERVICE_UNAVAILABLE);

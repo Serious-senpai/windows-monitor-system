@@ -39,6 +39,7 @@ async fn _put_index_template(
         .indices()
         .put_index_template(IndicesPutIndexTemplateParts::Name(name))
         .body(body)
+        .create(true)
         .send()
         .await?;
 
@@ -63,15 +64,8 @@ impl ElasticsearchWrapper {
         _put_index_template(
             &elastic._client,
             "events.windows-monitor-ecs",
-            serde_json::from_str::<serde_json::Value>(include_str!("indices/ecs-template.json"))?,
-        )
-        .await?;
-
-        _put_index_template(
-            &elastic._client,
-            "events.windows-monitor-original",
             serde_json::from_str::<serde_json::Value>(include_str!(
-                "indices/original-template.json"
+                "../../config/ecs-template.json"
             ))?,
         )
         .await?;
