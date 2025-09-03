@@ -26,6 +26,7 @@ use crate::configuration::Configuration;
 use crate::elastic::ElasticsearchWrapper;
 use crate::responses::ResponseBuilder;
 use crate::routes::abc::Service;
+use crate::routes::backup::BackupService;
 use crate::routes::health_check::HealthCheckService;
 use crate::routes::trace::TraceService;
 
@@ -63,6 +64,7 @@ impl App {
         let mut services = HashMap::new();
 
         for service in [
+            Arc::new(BackupService {}) as Arc<dyn Service>,
             Arc::new(HealthCheckService {}) as Arc<dyn Service>,
             Arc::new(TraceService {}) as Arc<dyn Service>,
         ] {

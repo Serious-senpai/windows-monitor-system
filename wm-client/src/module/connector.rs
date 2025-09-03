@@ -32,6 +32,7 @@ pub struct Connector {
 
     _errors_count: Arc<RwLock<usize>>,
     _reconnect_task: JoinHandle<()>,
+    _upload_backup_task: JoinHandle<()>,
 
     _buffer_pool: Arc<Pool<BytesMut>>,
 }
@@ -67,6 +68,19 @@ impl Connector {
             }
         });
 
+        let backup_cloned = backup.clone();
+        let http_cloned = http.clone();
+        let upload_backup_task = tokio::spawn(async move {
+            loop {
+                let task = backup_cloned.lock().await.upload(http_cloned.clone());
+                if let Err(e) = task.await {
+                    error!("Unable to upload backup: {e}");
+                }
+
+                sleep(Duration::from_secs(5)).await;
+            }
+        });
+
         Self {
             _configuration: configuration.clone(),
             _receiver: Mutex::new(receiver),
@@ -76,6 +90,7 @@ impl Connector {
             _http_semaphore: Semaphore::new(concurrency_limit),
             _errors_count: errors_count,
             _reconnect_task: reconnect_task,
+            _upload_backup_task: upload_backup_task,
             _buffer_pool: Arc::new(Pool::new(concurrency_limit, |_| {
                 BytesMut::with_capacity(configuration.event_post.flush_limit)
             })),
@@ -131,7 +146,7 @@ impl Connector {
                         let success = match self
                             ._http
                             .api()
-                            .post("/trace")
+                            .post("/trace?dummy")
                             .body(buffer.clone().freeze())
                             .send()
                             .await
@@ -245,6 +260,9 @@ impl Module for Connector {
         }
 
         debug!("Stopping Connector");
+
+        self._reconnect_task.abort();
+        self._upload_backup_task.abort();
 
         *running = false;
         debug!("Connector stopped");

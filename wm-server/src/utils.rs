@@ -1,8 +1,11 @@
+use std::collections::HashMap;
 use std::str;
 
+use hyper::Request;
 use openssl::base64::{decode_block, encode_block};
 use openssl::sha::sha512;
 use rand::Rng;
+use url::form_urlencoded;
 
 pub const ALPHANUMERIC: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
@@ -41,6 +44,20 @@ pub fn check_password(password: &str, hash: &str) -> bool {
 
     let expected_hash = hash_password(password, Some(salt));
     expected_hash == hash
+}
+
+pub fn parse_query<T>(request: &Request<T>) -> Vec<(String, String)> {
+    let query = request.uri().query().unwrap_or_default();
+    form_urlencoded::parse(query.as_bytes())
+        .into_owned()
+        .collect()
+}
+
+pub fn parse_query_map<T>(request: &Request<T>) -> HashMap<String, String> {
+    let query = request.uri().query().unwrap_or_default();
+    form_urlencoded::parse(query.as_bytes())
+        .into_owned()
+        .collect()
 }
 
 #[macro_export]

@@ -21,6 +21,7 @@ use wm_generated::ecs::{ECS, ECS_Host, ECS_Host_Os};
 use crate::app::App;
 use crate::responses::ResponseBuilder;
 use crate::routes::abc::Service;
+use crate::utils::parse_query_map;
 
 pub struct TraceService;
 
@@ -37,6 +38,9 @@ impl Service for TraceService {
         request: Request<Incoming>,
     ) -> Response<BoxBody<Bytes, hyper::Error>> {
         if request.method() == Method::POST {
+            let query = parse_query_map(&request);
+            let dummy = query.get("dummy").is_some();
+
             let stream = request
                 .into_body()
                 .into_data_stream()
@@ -56,6 +60,9 @@ impl Service for TraceService {
                 );
 
                 let eps = app.count_eps(peer.ip(), data.len()).await;
+                if dummy {
+                    return ResponseBuilder::json(StatusCode::OK, TraceResponse { eps });
+                }
 
                 match app.elastic().await {
                     Some(elastic) => {

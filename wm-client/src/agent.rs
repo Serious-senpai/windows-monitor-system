@@ -1,8 +1,6 @@
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use log::{error, info};
-use tokio::fs;
 use tokio::sync::{Mutex, mpsc};
 use wm_common::credential::CredentialManager;
 
@@ -22,22 +20,7 @@ pub struct Agent {
 
 impl Agent {
     pub async fn async_new(config: Arc<Configuration>, password: &str) -> Self {
-        let _ = fs::create_dir_all(&config.backup_directory).await;
-
-        let mut index = 0;
-        while Self::_get_log_file_path(config.clone(), index).exists() {
-            index += 1;
-            // if index == 1000 {
-            //     panic!("Too many backup files");
-            // }
-        }
-
-        let backup_path = Self::_get_log_file_path(config.clone(), index);
-        let backup = Arc::new(Mutex::new(Backup::new(
-            fs::File::create(&backup_path)
-                .await
-                .expect("Failed to create backup file"),
-        )));
+        let backup = Arc::new(Mutex::new(Backup::async_new(config.clone()).await));
 
         let http = Arc::new(HttpClient::new(&config, password));
         let (sender, receiver) = mpsc::channel(config.message_queue_limit);
@@ -54,12 +37,6 @@ impl Agent {
             _http: http,
             _backup: backup,
         }
-    }
-
-    fn _get_log_file_path(configuration: Arc<Configuration>, index: i32) -> PathBuf {
-        configuration
-            .backup_directory
-            .join(format!("backup-{index}.zstd"))
     }
 
     pub fn read_password(config: &Configuration) -> String {
