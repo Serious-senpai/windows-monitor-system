@@ -16,7 +16,6 @@ use wm_client::configuration::Configuration;
 use wm_client::runner::AgentRunner;
 use wm_common::credential::CredentialManager;
 use wm_common::error::RuntimeError;
-use wm_common::job::AssignJobGuard;
 use wm_common::logger::initialize_logger;
 use wm_common::service::service_manager::ServiceManager;
 use wm_common::service::status::ServiceState;
@@ -66,8 +65,8 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             info!("Done");
         }
         ServiceAction::Start => {
-            let job = AssignJobGuard::new("wm-client-job-object")?;
-            job.cpu_limit(0.01)?;
+            // let job = AssignJobGuard::new("wm-client-job-object")?;
+            // job.cpu_limit(0.01)?;
 
             if windows_service_detector::is_running_as_windows_service() == Ok(true) {
                 info!("Checking service {}", configuration.service_name);
