@@ -94,6 +94,10 @@ impl Backup {
 
                 let mut file = fs::File::open(entry.path()).await?;
                 let mut buffer = vec![];
+                if let Ok(metadata) = file.metadata().await {
+                    buffer.reserve(metadata.len() as usize);
+                }
+
                 file.read_buf(&mut buffer).await?;
 
                 match http.api().post("/backup?dummy").body(buffer).send().await {
