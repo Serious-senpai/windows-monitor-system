@@ -2,6 +2,7 @@ use std::env::consts::OS;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use log::warn;
 use sysinfo::{MINIMUM_CPU_UPDATE_INTERVAL, System};
 use tokio::time::sleep;
 use wm_common::schema::sysinfo::{CPUInfo, MemoryInfo, OSInfo, SystemInfo};
@@ -15,6 +16,13 @@ pub struct BlockingSystemInfo {
 
 impl BlockingSystemInfo {
     pub async fn async_new(refresh: Duration) -> Self {
+        if refresh < MINIMUM_CPU_UPDATE_INTERVAL {
+            warn!(
+                "System info refresh interval is too low (should be at least {}s)",
+                MINIMUM_CPU_UPDATE_INTERVAL.as_secs_f64()
+            );
+        }
+
         let mut system = System::new_all();
         sleep(MINIMUM_CPU_UPDATE_INTERVAL).await;
 

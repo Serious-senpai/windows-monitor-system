@@ -2,7 +2,7 @@ pub mod enricher;
 pub mod providers;
 
 use std::error::Error;
-use std::sync::{Arc, RwLock as BlockingRwLock};
+use std::sync::{Arc, Mutex as BlockingMutex};
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -30,7 +30,7 @@ pub struct EventTracer {
     _trace: RwLock<Option<KernelTrace>>,
     _running: Mutex<bool>,
     _backup: Arc<Mutex<Backup>>,
-    _enricher: Arc<BlockingRwLock<BlockingEventEnricher>>,
+    _enricher: Arc<BlockingMutex<BlockingEventEnricher>>,
 }
 
 impl EventTracer {
@@ -48,7 +48,7 @@ impl EventTracer {
             _trace: RwLock::new(None),
             _running: Mutex::new(false),
             _backup: backup,
-            _enricher: Arc::new(BlockingRwLock::new(
+            _enricher: Arc::new(BlockingMutex::new(
                 BlockingEventEnricher::async_new(Duration::from_secs_f64(
                     configuration.system_refresh_interval_seconds,
                 ))

@@ -5,7 +5,7 @@ pub mod tcpip;
 pub mod udpip;
 
 use std::error::Error;
-use std::sync::{Arc, RwLock as BlockingRwLock};
+use std::sync::{Arc, Mutex as BlockingMutex};
 
 use ferrisetw::provider::Provider;
 use ferrisetw::provider::kernel_providers::KernelProvider;
@@ -39,7 +39,7 @@ pub trait ProviderWrapper: Send + Sync {
         self: Arc<Self>,
         trace: TraceBuilder<KernelTrace>,
         sender: mpsc::Sender<Arc<CapturedEventRecord>>,
-        enricher: Arc<BlockingRwLock<BlockingEventEnricher>>,
+        enricher: Arc<BlockingMutex<BlockingEventEnricher>>,
         backup: Arc<Mutex<Backup>>,
     ) -> TraceBuilder<KernelTrace>
     where
@@ -54,7 +54,7 @@ pub trait ProviderWrapper: Send + Sync {
                 if ptr.clone().filter(record) {
                     // cargo fmt error here: https://github.com/rust-lang/rustfmt/issues/5689
                     match ptr.clone().callback(record, schema_locator) {
-                        Ok(event) => match enricher.try_write() {
+                        Ok(event) => match enricher.try_lock() {
                             Ok(mut enricher) => {
                                 let data = Arc::new(CapturedEventRecord {
                                     event,
@@ -74,7 +74,9 @@ pub trait ProviderWrapper: Send + Sync {
                                 }
                             }
                             Err(e) => {
-                                error!("Unable to get event enricher. Event is lost: {e}");
+                                error!(
+                                    "Inconsistent state reached. This mutex should never block: {e}"
+                                );
                             }
                         },
                         Err(e) => {

@@ -34,7 +34,7 @@ pub struct App {
     _config: Arc<Configuration>,
     _services: HashMap<String, Arc<dyn Service>>,
     _elastic: OnceCell<Arc<ElasticsearchWrapper>>,
-    _eps_queue: Mutex<HashMap<IpAddr, VecDeque<Instant>>>,
+    _eps_queue: Mutex<HashMap<IpAddr, (usize, VecDeque<(Instant, usize)>)>>,
 }
 
 impl App {
@@ -186,22 +186,21 @@ impl App {
     pub async fn count_eps(self: &Arc<Self>, ip: IpAddr, count: usize) -> usize {
         let now = Instant::now();
         let mut lock = self._eps_queue.lock().await;
-        let queue = lock.entry(ip).or_insert_with(VecDeque::new);
+        let queue = lock.entry(ip).or_insert_with(|| (0, VecDeque::new()));
 
-        queue.reserve(count);
-        for _ in 0..count {
-            queue.push_back(now);
-        }
+        queue.0 += count;
+        queue.1.push_back((now, count));
 
         let before = now - Duration::from_secs(1);
-        while let Some(&front) = queue.front() {
-            if front < before {
-                queue.pop_front();
+        while let Some((front, count)) = queue.1.front() {
+            if *front < before {
+                queue.0 -= *count;
+                queue.1.pop_front();
             } else {
                 break;
             }
         }
 
-        queue.len()
+        queue.0
     }
 }
