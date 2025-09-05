@@ -30,11 +30,13 @@ use crate::routes::backup::BackupService;
 use crate::routes::health_check::HealthCheckService;
 use crate::routes::trace::TraceService;
 
+type _EPSQueue = (usize, VecDeque<(Instant, usize)>);
+
 pub struct App {
     _config: Arc<Configuration>,
     _services: HashMap<String, Arc<dyn Service>>,
     _elastic: OnceCell<Arc<ElasticsearchWrapper>>,
-    _eps_queue: Mutex<HashMap<IpAddr, (usize, VecDeque<(Instant, usize)>)>>,
+    _eps_queue: Mutex<HashMap<IpAddr, _EPSQueue>>,
 }
 
 impl App {
@@ -137,7 +139,7 @@ impl App {
                     break;
                 }
                 Ok((stream, peer)) = listener.accept() => {
-                    debug!("New connection {}", peer);
+                    debug!("New connection {peer}");
                     let tls = tls.clone();
 
                     let ptr = self.clone();

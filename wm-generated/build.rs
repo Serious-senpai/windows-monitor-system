@@ -78,7 +78,7 @@ fn process_object(
     for (attribute, props) in properties {
         let mut field_name = attribute.clone();
         if !rust_identifier.is_match(attribute).unwrap() {
-            code.push_str(&format!("    #[serde(rename = \"{}\")]\n", attribute));
+            code.push_str(&format!("    #[serde(rename = \"{attribute}\")]\n"));
             field_name = attribute
                 .chars()
                 .filter(|c| c.is_alphanumeric() || *c == '_')
@@ -89,7 +89,7 @@ fn process_object(
             }
         }
 
-        code.push_str(&format!("    pub {}: ", field_name));
+        code.push_str(&format!("    pub {field_name}: "));
 
         let elastic_type = props
             .get("type")
@@ -129,7 +129,7 @@ fn process_object(
         if attribute == "@timestamp" {
             has_timestamp = true;
         } else {
-            rust_type = format!("Option<{}>", rust_type);
+            rust_type = format!("Option<{rust_type}>");
             field_names_to_structs.insert(field_name, rust_type.clone());
         }
 

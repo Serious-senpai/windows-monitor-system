@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -11,24 +13,40 @@ pub struct OSInfo {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct MemoryInfo {
-    pub total_mem: u64,
-    pub used_mem: u64,
-    pub total_swap: u64,
-    pub used_swap: u64,
+    pub memory_load: u32,
+    pub total_physical: u64,
+    pub available_physical: u64,
+    pub total_page_file: u64,
+    pub available_page_file: u64,
+    pub total_virtual: u64,
+    pub available_virtual: u64,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct CPUInfo {
-    pub brand: String,
-    pub usage: f32,
-    pub frequency: u64,
-    pub name: String,
-    pub vendor_id: String,
+    pub usage: f64,
+}
+
+impl CPUInfo {
+    pub fn from_ckpt(before: &(u64, u64, u64), after: &(u64, u64, u64)) -> Self {
+        let idle = after.0 - before.0;
+        let kernel = after.1 - before.1;
+        let user = after.2 - before.2;
+        let total = kernel + user;
+
+        let usage = if total == 0 {
+            0.0
+        } else {
+            (total - idle) as f64 * 100.0 / total as f64
+        };
+
+        Self { usage }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct SystemInfo {
-    pub os: OSInfo,
+    pub os: Arc<OSInfo>,
     pub memory: MemoryInfo,
-    pub cpus: Vec<CPUInfo>,
+    pub cpu: CPUInfo,
 }

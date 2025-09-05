@@ -39,7 +39,7 @@ impl Service for TraceService {
     ) -> Response<BoxBody<Bytes, hyper::Error>> {
         if request.method() == Method::POST {
             let query = parse_query_map(&request);
-            let dummy = query.get("dummy").is_some();
+            let dummy = query.contains_key("dummy");
 
             let stream = request
                 .into_body()
