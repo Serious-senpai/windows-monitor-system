@@ -51,23 +51,30 @@ impl BlockingSystemInfo {
         last_cpu_ckpt: &(u64, u64, u64),
         os_info: &Arc<OSInfo>,
     ) -> Option<((u64, u64, u64), Arc<SystemInfo>)> {
-        if let Ok(cpu_ckpt) = get_system_times()
-            && let Ok(memory) = memory_status()
-        {
-            let cpu = CPUInfo::from_ckpt(last_cpu_ckpt, &cpu_ckpt);
+        let cpu_ckpt = match get_system_times() {
+            Ok(ckpt) => ckpt,
+            Err(e) => {
+                warn!("Failed to get CPU times: {e}");
+                return None;
+            }
+        };
+        let cpu = CPUInfo::from_ckpt(last_cpu_ckpt, &cpu_ckpt);
+        let memory = match memory_status() {
+            Ok(mem) => mem,
+            Err(e) => {
+                warn!("Failed to get memory status: {e}");
+                return None;
+            }
+        };
 
-            Some((
-                cpu_ckpt,
-                Arc::new(SystemInfo {
-                    os: os_info.clone(),
-                    memory,
-                    cpu,
-                }),
-            ))
-        } else {
-            warn!("Failed to refresh system info");
-            None
-        }
+        Some((
+            cpu_ckpt,
+            Arc::new(SystemInfo {
+                os: os_info.clone(),
+                memory,
+                cpu,
+            }),
+        ))
     }
 
     pub fn system_info(&mut self) -> Arc<SystemInfo> {

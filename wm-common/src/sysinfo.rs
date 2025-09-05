@@ -32,7 +32,10 @@ pub fn get_system_times() -> Result<(u64, u64, u64), WindowsError> {
 }
 
 pub fn memory_status() -> Result<MemoryInfo, WindowsError> {
-    let mut status = MEMORYSTATUSEX::default();
+    let mut status = MEMORYSTATUSEX {
+        dwLength: size_of::<MEMORYSTATUSEX>() as u32,
+        ..Default::default()
+    };
     if let Err(e) = unsafe { GlobalMemoryStatusEx(&mut status) } {
         Err(WindowsError::from(e))?;
     }
