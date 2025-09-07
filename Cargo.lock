@@ -2963,6 +2963,7 @@ dependencies = [
  "ferrisetw",
  "log",
  "mimalloc",
+ "parking_lot",
  "reqwest",
  "rpassword",
  "serde",

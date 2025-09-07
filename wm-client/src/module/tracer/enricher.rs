@@ -78,11 +78,11 @@ impl BlockingSystemInfo {
     }
 
     pub fn system_info(&mut self) -> Arc<SystemInfo> {
-        if self._last_update.elapsed() > self._system_refresh {
-            if let Some(packed) = Self::_fetch_sysinfo(&self._last_cpu_ckpt, &self._os_info) {
-                (self._last_cpu_ckpt, self._info) = packed;
-                self._last_update = Instant::now();
-            }
+        if self._last_update.elapsed() > self._system_refresh
+            && let Some(packed) = Self::_fetch_sysinfo(&self._last_cpu_ckpt, &self._os_info)
+        {
+            (self._last_cpu_ckpt, self._info) = packed;
+            self._last_update = Instant::now();
         }
 
         self._info.clone()

@@ -2,12 +2,13 @@ pub mod enricher;
 pub mod providers;
 
 use std::error::Error;
-use std::sync::{Arc, Mutex as BlockingMutex};
+use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
 use ferrisetw::trace::{KernelTrace, TraceBuilder, TraceTrait, stop_trace_by_name};
 use log::{debug, error};
+use parking_lot::Mutex as BlockingMutex;
 use tokio::sync::{Mutex, RwLock, mpsc};
 use tokio::task;
 use wm_common::error::RuntimeError;

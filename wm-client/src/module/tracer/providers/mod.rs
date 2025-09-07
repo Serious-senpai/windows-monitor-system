@@ -5,13 +5,14 @@ pub mod tcpip;
 pub mod udpip;
 
 use std::error::Error;
-use std::sync::{Arc, Mutex as BlockingMutex};
+use std::sync::Arc;
 
 use ferrisetw::provider::Provider;
 use ferrisetw::provider::kernel_providers::KernelProvider;
 use ferrisetw::trace::{KernelTrace, TraceBuilder};
 use ferrisetw::{EventRecord, SchemaLocator};
 use log::{debug, error, warn};
+use parking_lot::Mutex as BlockingMutex;
 use tokio::sync::{Mutex, mpsc};
 use wm_common::schema::event::{CapturedEventRecord, Event};
 
@@ -55,7 +56,7 @@ pub trait ProviderWrapper: Send + Sync {
                     // cargo fmt error here: https://github.com/rust-lang/rustfmt/issues/5689
                     match ptr.clone().callback(record, schema_locator) {
                         Ok(event) => match enricher.try_lock() {
-                            Ok(mut enricher) => {
+                            Some(mut enricher) => {
                                 let data = Arc::new(CapturedEventRecord {
                                     event,
                                     system: enricher.system.system_info(),
@@ -73,9 +74,9 @@ pub trait ProviderWrapper: Send + Sync {
                                     });
                                 }
                             }
-                            Err(e) => {
+                            None => {
                                 error!(
-                                    "Inconsistent state reached. This mutex should never block: {e}"
+                                    "Inconsistent state reached. This mutex should never block."
                                 );
                             }
                         },
