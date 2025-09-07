@@ -53,3 +53,7 @@ too_many_arguments = "allow"
 trait_duplication_in_bounds = "warn"
 use_self = "warn"
 wildcard_imports = "warn"
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
