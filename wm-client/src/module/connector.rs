@@ -219,7 +219,8 @@ impl Module for Connector {
 
         debug!("Running Connector");
 
-        let mut raw_payload = Vec::with_capacity(self._configuration.event_post.flush_limit);
+        let mut raw_payload =
+            Vec::with_capacity(self._configuration.event_post.flush_limit * 3 / 2);
         raw_payload.push(b'[');
 
         let mut receiver = self._receiver.lock().await;
