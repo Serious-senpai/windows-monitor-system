@@ -7,6 +7,7 @@ pub mod udpip;
 use std::error::Error;
 use std::sync::Arc;
 
+use chrono::Utc;
 use ferrisetw::provider::Provider;
 use ferrisetw::provider::kernel_providers::KernelProvider;
 use ferrisetw::trace::{KernelTrace, TraceBuilder};
@@ -60,6 +61,7 @@ pub trait ProviderWrapper: Send + Sync {
                                 let data = Arc::new(CapturedEventRecord {
                                     event,
                                     system: enricher.system.system_info(),
+                                    captured: Utc::now(),
                                 });
 
                                 if sender.try_send(data.clone()).is_err() {

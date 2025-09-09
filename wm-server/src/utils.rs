@@ -1,8 +1,6 @@
-use std::cell::LazyCell;
 use std::collections::HashMap;
 use std::str;
 
-use chrono::{DateTime, Duration, TimeZone, Utc};
 use hyper::Request;
 use openssl::base64::{decode_block, encode_block};
 use openssl::sha::sha512;
@@ -60,23 +58,6 @@ pub fn parse_query_map<T>(request: &Request<T>) -> HashMap<String, String> {
     form_urlencoded::parse(query.as_bytes())
         .into_owned()
         .collect()
-}
-
-fn _windows_timestamp<const NSECS: bool>(value: i64) -> DateTime<Utc> {
-    const BASE: LazyCell<DateTime<Utc>> =
-        LazyCell::new(|| Utc.with_ymd_and_hms(1601, 1, 1, 0, 0, 0).unwrap());
-
-    let secs = value / 10_000_000;
-    let nsecs = if NSECS { (value % 10_000_000) * 100 } else { 0 };
-    *BASE + Duration::seconds(secs) + Duration::nanoseconds(nsecs)
-}
-
-pub fn windows_timestamp(value: i64) -> DateTime<Utc> {
-    _windows_timestamp::<true>(value)
-}
-
-pub fn windows_timestamp_rounded(value: i64) -> DateTime<Utc> {
-    _windows_timestamp::<false>(value)
 }
 
 #[macro_export]

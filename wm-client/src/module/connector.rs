@@ -92,7 +92,7 @@ impl Connector {
             _reconnect_task: reconnect_task,
             _upload_backup_task: upload_backup_task,
             _buffer_pool: Arc::new(Pool::new(concurrency_limit, |_| {
-                BytesMut::with_capacity(configuration.event_post.flush_limit)
+                BytesMut::with_capacity(8192) // these buffers are for compressed data, so we cannot predict them anyway (let's start with 8KB!)
             })),
         }
     }
@@ -146,7 +146,7 @@ impl Connector {
                         let success = match self
                             ._http
                             .api()
-                            .post("/trace?dummy")
+                            .post("/trace")
                             .body(buffer.clone().freeze())
                             .send()
                             .await
@@ -183,16 +183,15 @@ impl Connector {
             }
 
             if write_to_backup {
+                // Sadly we cannot reuse the compressed buffer above because the backup stream maintains its own state
                 debug!(
-                    "Backing up {} bytes of uncompressed data (compressed to {} bytes)",
+                    "Backing up {} bytes of uncompressed data",
                     raw_payload.len(),
-                    buffer.len(),
                 );
 
                 let mut backup = self._backup.lock().await;
-
-                backup.write_raw::<false>(&buffer).await;
-                backup.write_raw::<true>(b"\n").await;
+                backup.write(raw_payload).await;
+                backup.write(b"\n").await;
             }
         }
 

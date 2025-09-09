@@ -15,6 +15,7 @@ serde_json = { workspace = true }
 simplelog = "^0.12.2"
 tokio = { workspace = true }
 windows = { workspace = true }
+wm-generated = { path = "../wm-generated" }
 
 [lints]
 workspace = true

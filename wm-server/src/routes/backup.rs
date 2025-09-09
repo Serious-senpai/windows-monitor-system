@@ -4,18 +4,16 @@ use std::sync::Arc;
 
 use async_compression::tokio::bufread::ZstdDecoder;
 use async_trait::async_trait;
-use chrono::Utc;
 use elasticsearch::BulkParts;
 use futures_util::stream::TryStreamExt;
 use http_body_util::BodyExt;
 use http_body_util::combinators::BoxBody;
 use hyper::body::{Bytes, Incoming};
 use hyper::{Method, Request, Response, StatusCode};
-use log::{debug, error};
+use log::error;
 use tokio::io::AsyncReadExt;
 use tokio_util::io::StreamReader;
 use wm_common::schema::event::CapturedEventRecord;
-use wm_generated::ecs::{ECS, ECS_Host, ECS_Host_Os};
 
 use crate::app::App;
 use crate::responses::ResponseBuilder;
@@ -56,8 +54,6 @@ impl Service for BackupService {
 
                     match serde_json::from_slice::<Vec<CapturedEventRecord>>(&buffer) {
                         Ok(events) => {
-                            debug!("Received {} backup events", events.len());
-
                             if !dummy {
                                 match app.elastic().await {
                                     Some(elastic) => {
@@ -66,14 +62,7 @@ impl Service for BackupService {
                                         for event in events {
                                             body.extend_from_slice(b"{\"create\":{}}\n");
 
-                                            let mut ecs = ECS::new(Utc::now());
-                                            let mut os = ECS_Host_Os::new();
-                                            os.name = Some(event.system.os.name.clone());
-
-                                            let mut host = ECS_Host::new();
-                                            host.os = Some(os);
-                                            ecs.host = Some(host);
-
+                                            let ecs = event.to_ecs(peer.ip());
                                             serde_json::to_writer(&mut body, &ecs).unwrap();
                                             body.push(b'\n');
                                         }

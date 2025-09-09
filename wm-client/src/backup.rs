@@ -64,12 +64,8 @@ impl Backup {
         self._zstd.write_u8(b'\n').await.unwrap();
     }
 
-    pub async fn write_raw<const COMPRESSED: bool>(&mut self, data: &[u8]) {
-        if COMPRESSED {
-            self._zstd.write_all(data).await.unwrap();
-        } else {
-            self._zstd.get_mut().write_all(data).await.unwrap();
-        }
+    pub async fn write(&mut self, data: &[u8]) {
+        self._zstd.write_all(data).await.unwrap();
     }
 
     pub async fn flush(&mut self) {
@@ -100,7 +96,7 @@ impl Backup {
 
                 file.read_buf(&mut buffer).await?;
 
-                match http.api().post("/backup?dummy").body(buffer).send().await {
+                match http.api().post("/backup").body(buffer).send().await {
                     Ok(response) => {
                         if response.status() == 204 {
                             info!("Uploaded backup {}", entry.path().display());

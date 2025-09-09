@@ -110,6 +110,7 @@ fn process_object(
             "long" => "i64".to_string(),
             "short" => "i16".to_string(),
             "unsigned_long" => "u64".to_string(),
+            "wildcard" => "String".to_string(),
             "object" => {
                 let (nested_type, nested_code) = process_object(
                     field_name.clone(),

@@ -6,3 +6,4 @@ pub mod pool;
 pub mod schema;
 pub mod service;
 pub mod sysinfo;
+pub mod utils;

@@ -2,8 +2,7 @@ use std::collections::{BTreeMap, VecDeque};
 
 use chrono::{DateTime, Duration, Utc};
 use wm_common::schema::event::CapturedEventRecord;
-
-use crate::utils::windows_timestamp_rounded;
+use wm_common::utils::windows_timestamp_rounded;
 
 pub struct EPSQueue {
     _emit_count: usize,
@@ -44,7 +43,7 @@ impl EPSQueue {
 
         self._emit_count += data.len();
         self._emit_queue.reserve(emit_timestamps.len());
-        for (timestamp, count) in emit_timestamps.into_iter() {
+        for (timestamp, count) in emit_timestamps {
             self._emit_queue.push_back((timestamp, count));
         }
 

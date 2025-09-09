@@ -67,7 +67,7 @@ impl HttpClient {
                 Identity::from_pkcs12_der(Self::_client_certificate(), password)
                     .expect("Failed to load client identity"),
             )
-            .timeout(Duration::from_secs(10));
+            .connect_timeout(Duration::from_secs(3));
 
         for (domain, ip) in &configuration.dns_resolver {
             builder = builder.resolve(domain, SocketAddr::new(*ip, 0));

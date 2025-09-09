@@ -2958,6 +2958,7 @@ dependencies = [
  "async-compression",
  "async-trait",
  "bytes",
+ "chrono",
  "clap",
  "config-file",
  "ferrisetw",
@@ -2989,6 +2990,7 @@ dependencies = [
  "simplelog",
  "tokio",
  "windows 0.60.0",
+ "wm-generated",
 ]
 
 [[package]]
@@ -3027,7 +3029,6 @@ dependencies = [
  "tokio-util",
  "url",
  "wm-common",
- "wm-generated",
 ]
 
 [[package]]

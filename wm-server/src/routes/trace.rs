@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use async_compression::tokio::bufread::ZstdDecoder;
 use async_trait::async_trait;
-use chrono::Utc;
 use elasticsearch::BulkParts;
 use futures_util::stream::TryStreamExt;
 use http_body_util::BodyExt;
@@ -16,7 +15,6 @@ use tokio::io::AsyncReadExt;
 use tokio_util::io::StreamReader;
 use wm_common::schema::event::CapturedEventRecord;
 use wm_common::schema::responses::TraceResponse;
-use wm_generated::ecs::{ECS, ECS_Host, ECS_Host_Os};
 
 use crate::app::App;
 use crate::eps::EPSQueue;
@@ -67,61 +65,47 @@ impl Service for TraceService {
 
                     (queue.emit_eps(), queue.receive_eps())
                 };
-                if dummy {
-                    return ResponseBuilder::json(
-                        StatusCode::OK,
-                        TraceResponse {
-                            emit_eps,
-                            receive_eps,
-                        },
-                    );
-                }
+                if !dummy {
+                    match app.elastic().await {
+                        Some(elastic) => {
+                            let mut body = vec![];
 
-                match app.elastic().await {
-                    Some(elastic) => {
-                        let mut body = vec![];
+                            debug!("Pushing {} events to Elasticsearch", data.len());
+                            for event in data {
+                                body.extend_from_slice(b"{\"create\":{}}\n");
 
-                        for event in data {
-                            body.extend_from_slice(b"{\"create\":{}}\n");
+                                let ecs = event.to_ecs(peer.ip());
+                                serde_json::to_writer(&mut body, &ecs).unwrap();
+                                body.push(b'\n');
+                            }
 
-                            let mut ecs = ECS::new(Utc::now());
-                            let mut os = ECS_Host_Os::new();
-                            os.name = Some(event.system.os.name.clone());
-
-                            let mut host = ECS_Host::new();
-                            host.os = Some(os);
-                            ecs.host = Some(host);
-
-                            serde_json::to_writer(&mut body, &ecs).unwrap();
-                            body.push(b'\n');
+                            if let Err(e) = elastic
+                                .client()
+                                .bulk(BulkParts::Index(&format!(
+                                    "events.windows-monitor-ecs-{}",
+                                    peer.ip()
+                                )))
+                                .body(vec![body])
+                                .send()
+                                .await
+                            {
+                                error!("{e}");
+                                return ResponseBuilder::default(StatusCode::SERVICE_UNAVAILABLE);
+                            }
                         }
-
-                        if let Err(e) = elastic
-                            .client()
-                            .bulk(BulkParts::Index(&format!(
-                                "events.windows-monitor-ecs-{}",
-                                peer.ip()
-                            )))
-                            .body(vec![body])
-                            .send()
-                            .await
-                        {
-                            error!("{e}");
+                        None => {
                             return ResponseBuilder::default(StatusCode::SERVICE_UNAVAILABLE);
                         }
-
-                        return ResponseBuilder::json(
-                            StatusCode::OK,
-                            TraceResponse {
-                                emit_eps,
-                                receive_eps,
-                            },
-                        );
-                    }
-                    None => {
-                        return ResponseBuilder::default(StatusCode::SERVICE_UNAVAILABLE);
                     }
                 }
+
+                return ResponseBuilder::json(
+                    StatusCode::OK,
+                    TraceResponse {
+                        emit_eps,
+                        receive_eps,
+                    },
+                );
             }
 
             ResponseBuilder::default(StatusCode::BAD_REQUEST)

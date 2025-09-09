@@ -549,7 +549,8 @@
                             "dynamic": "strict"
                         },
                         "labels": {
-                            "type": "object"
+                            "type": "object",
+                            "dynamic": true
                         },
                         "memory": {
                             "properties": {
@@ -2532,7 +2533,8 @@
                     "dynamic": "strict"
                 },
                 "labels": {
-                    "type": "object"
+                    "type": "object",
+                    "dynamic": true
                 },
                 "log": {
                     "properties": {

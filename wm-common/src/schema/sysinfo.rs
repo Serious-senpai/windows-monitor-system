@@ -49,4 +49,6 @@ pub struct SystemInfo {
     pub os: Arc<OSInfo>,
     pub memory: MemoryInfo,
     pub cpu: CPUInfo,
+    pub architecture: String,
+    pub hostname: String,
 }

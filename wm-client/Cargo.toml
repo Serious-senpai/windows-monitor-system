@@ -11,6 +11,7 @@ license = "GPL-2.0-or-later"
 async-compression = { workspace = true }
 async-trait = { workspace = true }
 bytes = "^1.10.1"
+chrono = { workspace = true }
 clap = { version = "^4.5.42", features = ["cargo", "derive"] }
 config-file = { workspace = true }
 ferrisetw = { workspace = true }

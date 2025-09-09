@@ -7,6 +7,7 @@ use sysinfo::{MINIMUM_CPU_UPDATE_INTERVAL, System};
 use tokio::time::sleep;
 use wm_common::schema::sysinfo::{CPUInfo, OSInfo, SystemInfo};
 use wm_common::sysinfo::{get_system_times, memory_status};
+use wm_common::utils::get_computer_name;
 
 pub struct BlockingSystemInfo {
     _system_refresh: Duration,
@@ -73,6 +74,15 @@ impl BlockingSystemInfo {
                 os: os_info.clone(),
                 memory,
                 cpu,
+                architecture: if cfg!(target_arch = "x86_64") {
+                    "x86_64"
+                } else if cfg!(target_arch = "x86") {
+                    "x86"
+                } else {
+                    "unknown"
+                }
+                .to_string(),
+                hostname: get_computer_name().unwrap_or_else(|_| "unknown".to_string()),
             }),
         ))
     }

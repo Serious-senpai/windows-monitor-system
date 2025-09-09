@@ -1,9 +1,17 @@
 use std::net::IpAddr;
+use std::path::Path;
 use std::sync::Arc;
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
+use wm_generated::ecs::{
+    ECS, ECS_Destination, ECS_Dll, ECS_Event, ECS_File, ECS_Host, ECS_Host_Cpu, ECS_Host_Os,
+    ECS_Process, ECS_Source,
+};
 
 use crate::schema::sysinfo::SystemInfo;
+use crate::utils::windows_timestamp;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type", content = "data")]
@@ -47,6 +55,18 @@ pub enum EventData {
     },
 }
 
+impl EventData {
+    pub fn event_type(&self) -> &'static str {
+        match self {
+            EventData::File { .. } => "file",
+            EventData::Image { .. } => "image",
+            EventData::Process { .. } => "process",
+            EventData::TcpIp { .. } => "tcpip",
+            EventData::UdpIp { .. } => "udpip",
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Event {
     pub guid: String,
@@ -62,4 +82,194 @@ pub struct Event {
 pub struct CapturedEventRecord {
     pub event: Event,
     pub system: Arc<SystemInfo>,
+    pub captured: DateTime<Utc>,
+}
+
+impl CapturedEventRecord {
+    pub fn to_ecs(&self, ip: IpAddr) -> ECS {
+        let mut os = ECS_Host_Os::new();
+        os.family = Some(self.system.os.platform.clone());
+        os.full = Some(self.system.os.full.clone());
+        os.kernel = Some(self.system.os.kernel.clone());
+        os.name = Some(self.system.os.name.clone());
+        os.platform = Some(self.system.os.platform.clone());
+        os.type_ = Some(self.system.os.platform.clone());
+        os.version = Some(self.system.os.version.clone());
+
+        let mut cpu = ECS_Host_Cpu::new();
+        cpu.usage = Some(self.system.cpu.usage);
+
+        let mut host = ECS_Host::new();
+        host.architecture = Some(self.system.architecture.clone());
+        host.hostname = Some(self.system.hostname.clone());
+        host.id = Some(ip.to_string());
+        host.ip = Some(ip);
+        host.name = Some(self.system.hostname.clone());
+        host.os = Some(os);
+
+        let mut event = ECS_Event::new();
+        event.created = Some(self.captured);
+        event.ingested = Some(Utc::now());
+        event.kind = Some("event".to_string());
+        event.module = Some("wm-client".to_string());
+        event.provider = Some("kernel".to_string());
+
+        let mut ecs = ECS::new(windows_timestamp(self.event.raw_timestamp));
+        ecs.labels = Some(json!({"application": "windows-monitor"}));
+        ecs.tags = Some(self.event.data.event_type().into());
+        ecs.host = Some(host);
+
+        match &self.event.data {
+            EventData::File {
+                file_object,
+                file_name,
+            } => {
+                event.action = Some(
+                    match self.event.opcode {
+                        0 => "file-name",
+                        32 => "file-create",
+                        35 => "file-delete",
+                        _ => "file-unknown",
+                    }
+                    .to_string(),
+                );
+                event.category = Some("file".to_string());
+                event.outcome = Some("success".to_string());
+                event.type_ = Some(
+                    match self.event.opcode {
+                        32 => "creation",
+                        35 => "deletion",
+                        _ => "info",
+                    }
+                    .to_string(),
+                );
+
+                let path = Path::new(file_name);
+
+                let mut file = ECS_File::new();
+                file.inode = Some(file_object.to_string());
+                file.name = path.file_name().map(|s| s.to_string_lossy().to_string());
+                file.path = Some(file_name.clone());
+                ecs.file = Some(file);
+            }
+            EventData::Image {
+                image_base,
+                image_size,
+                process_id,
+                image_checksum,
+                file_name,
+            } => {
+                event.action = Some(
+                    match self.event.opcode {
+                        2 => "image-unload",
+                        10 => "image-load",
+                        _ => "image-unknown",
+                    }
+                    .to_string(),
+                );
+                event.category = Some("library".to_string());
+                event.outcome = Some("success".to_string());
+                event.type_ = Some(
+                    match self.event.opcode {
+                        2 => "end",
+                        10 => "start",
+                        _ => "info",
+                    }
+                    .to_string(),
+                );
+
+                let path = Path::new(file_name);
+
+                let mut dll = ECS_Dll::new();
+                dll.name = path.file_name().map(|s| s.to_string_lossy().to_string());
+                dll.path = Some(file_name.clone());
+                ecs.dll = Some(dll);
+            }
+            EventData::Process {
+                unique_process_key,
+                process_id,
+                parent_id,
+                session_id,
+                exit_status,
+                directory_table_base,
+                image_file_name,
+                command_line,
+            } => {
+                event.action = Some(
+                    match self.event.opcode {
+                        1 => "process-start",
+                        2 => "process-end",
+                        _ => "process-unknown",
+                    }
+                    .to_string(),
+                );
+                event.category = Some("process".to_string());
+                event.outcome = Some("success".to_string());
+                event.type_ = Some(
+                    match self.event.opcode {
+                        1 => "start",
+                        2 => "end",
+                        _ => "info",
+                    }
+                    .to_string(),
+                );
+
+                let mut process = ECS_Process::new();
+                process.command_line = Some(command_line.clone());
+                process.executable = Some(image_file_name.clone());
+                process.exit_code = Some(*exit_status as i64);
+                process.pid = Some(*process_id as i64);
+                ecs.process = Some(process);
+            }
+            EventData::TcpIp {
+                pid,
+                size,
+                daddr,
+                saddr,
+                dport,
+                sport,
+            }
+            | EventData::UdpIp {
+                pid,
+                size,
+                daddr,
+                saddr,
+                dport,
+                sport,
+            } => {
+                event.action = Some(
+                    match self.event.opcode {
+                        10 => "udp-send",
+                        11 => "udp-receive",
+                        12 => "tcp-connect",
+                        13 => "tcp-disconnect",
+                        15 => "tcp-accept",
+                        _ => "tcp-udp-unknown",
+                    }
+                    .to_string(),
+                );
+                event.category = Some("network".to_string());
+                event.outcome = Some("success".to_string());
+                event.type_ = Some("connection".to_string());
+
+                let mut source = ECS_Source::new();
+                source.address = Some(saddr.to_string());
+                source.bytes = Some(*size as i64);
+                source.ip = Some(*saddr);
+                source.port = Some(*sport as i64);
+                ecs.source = Some(source);
+
+                let mut destination = ECS_Destination::new();
+                destination.address = Some(daddr.to_string());
+                destination.bytes = Some(*size as i64);
+                destination.ip = Some(*daddr);
+                destination.port = Some(*dport as i64);
+                ecs.destination = Some(destination);
+            }
+        }
+
+        ecs.event = Some(event);
+
+        ecs
+    }
 }
