@@ -1,11 +1,10 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
 use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 use http_body_util::combinators::BoxBody;
 use hyper::StatusCode;
@@ -24,19 +23,18 @@ use tokio_rustls::TlsAcceptor;
 
 use crate::configuration::Configuration;
 use crate::elastic::ElasticsearchWrapper;
+use crate::eps::EPSQueue;
 use crate::responses::ResponseBuilder;
 use crate::routes::abc::Service;
 use crate::routes::backup::BackupService;
 use crate::routes::health_check::HealthCheckService;
 use crate::routes::trace::TraceService;
 
-type _EPSQueue = (usize, VecDeque<(Instant, usize)>);
-
 pub struct App {
     _config: Arc<Configuration>,
     _services: HashMap<String, Arc<dyn Service>>,
     _elastic: OnceCell<Arc<ElasticsearchWrapper>>,
-    _eps_queue: Mutex<HashMap<IpAddr, _EPSQueue>>,
+    _eps_queue: Mutex<HashMap<IpAddr, EPSQueue>>,
 }
 
 impl App {
@@ -185,24 +183,7 @@ impl App {
         Ok(())
     }
 
-    pub async fn count_eps(self: &Arc<Self>, ip: IpAddr, count: usize) -> usize {
-        let now = Instant::now();
-        let mut lock = self._eps_queue.lock().await;
-        let queue = lock.entry(ip).or_insert_with(|| (0, VecDeque::new()));
-
-        queue.0 += count;
-        queue.1.push_back((now, count));
-
-        let before = now - Duration::from_secs(1);
-        while let Some((front, count)) = queue.1.front() {
-            if *front < before {
-                queue.0 -= *count;
-                queue.1.pop_front();
-            } else {
-                break;
-            }
-        }
-
-        queue.0
+    pub fn eps_queue(&self) -> &Mutex<HashMap<IpAddr, EPSQueue>> {
+        &self._eps_queue
     }
 }

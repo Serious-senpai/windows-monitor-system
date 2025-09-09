@@ -19,6 +19,7 @@ use wm_common::schema::responses::TraceResponse;
 use wm_generated::ecs::{ECS, ECS_Host, ECS_Host_Os};
 
 use crate::app::App;
+use crate::eps::EPSQueue;
 use crate::responses::ResponseBuilder;
 use crate::routes::abc::Service;
 use crate::utils::parse_query_map;
@@ -59,9 +60,21 @@ impl Service for TraceService {
                     data.len()
                 );
 
-                let eps = app.count_eps(peer.ip(), data.len()).await;
+                let (emit_eps, receive_eps) = {
+                    let mut map = app.eps_queue().lock().await;
+                    let queue = map.entry(peer.ip()).or_insert_with(EPSQueue::new);
+                    queue.count_eps(&data);
+
+                    (queue.emit_eps(), queue.receive_eps())
+                };
                 if dummy {
-                    return ResponseBuilder::json(StatusCode::OK, TraceResponse { eps });
+                    return ResponseBuilder::json(
+                        StatusCode::OK,
+                        TraceResponse {
+                            emit_eps,
+                            receive_eps,
+                        },
+                    );
                 }
 
                 match app.elastic().await {
@@ -97,7 +110,13 @@ impl Service for TraceService {
                             return ResponseBuilder::default(StatusCode::SERVICE_UNAVAILABLE);
                         }
 
-                        return ResponseBuilder::json(StatusCode::OK, TraceResponse { eps });
+                        return ResponseBuilder::json(
+                            StatusCode::OK,
+                            TraceResponse {
+                                emit_eps,
+                                receive_eps,
+                            },
+                        );
                     }
                     None => {
                         return ResponseBuilder::default(StatusCode::SERVICE_UNAVAILABLE);
