@@ -41,7 +41,7 @@ impl ApiClient {
         let url = self
             ._base_url
             .join(endpoint)
-            .expect(&format!("Failed to construct URL to {endpoint}"));
+            .unwrap_or_else(|_| panic!("Failed to construct URL to {endpoint}"));
         self._client.request(method, url)
     }
 }

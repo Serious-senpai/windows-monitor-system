@@ -85,7 +85,7 @@ impl KibanaClient {
             .elasticsearch
             .kibana
             .join(endpoint)
-            .expect(&format!("Failed to construct URL to {endpoint}"));
+            .unwrap_or_else(|_| panic!("Failed to construct URL to {endpoint}"));
         self._http
             .request(method, url)
             .header("Authorization", self._auth_header())
