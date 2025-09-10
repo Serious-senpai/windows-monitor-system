@@ -76,9 +76,10 @@ fn process_object(
 
     let mut has_timestamp = false;
     for (attribute, props) in properties {
+        let mut serde_macro = vec![];
         let mut field_name = attribute.clone();
         if !rust_identifier.is_match(attribute).unwrap() {
-            code.push_str(&format!("    #[serde(rename = \"{attribute}\")]\n"));
+            serde_macro.push(format!("rename = \"{attribute}\""));
             field_name = attribute
                 .chars()
                 .filter(|c| c.is_alphanumeric() || *c == '_')
@@ -88,8 +89,6 @@ fn process_object(
                 field_name.push('_');
             }
         }
-
-        code.push_str(&format!("    pub {field_name}: "));
 
         let elastic_type = props
             .get("type")
@@ -129,10 +128,13 @@ fn process_object(
         if attribute == "@timestamp" {
             has_timestamp = true;
         } else {
+            serde_macro.push("skip_serializing_if = \"Option::is_none\"".to_string());
             rust_type = format!("Option<{rust_type}>");
-            field_names_to_structs.insert(field_name, rust_type.clone());
+            field_names_to_structs.insert(field_name.clone(), rust_type.clone());
         }
 
+        code.push_str(&format!("    #[serde({})]\n", serde_macro.join(", ")));
+        code.push_str(&format!("    pub {field_name}: "));
         code.push_str(&format!("{rust_type},\n"));
     }
 

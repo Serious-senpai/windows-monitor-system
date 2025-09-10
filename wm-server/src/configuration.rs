@@ -7,6 +7,7 @@ use wm_common::logger::LogLevel;
 #[derive(Deserialize, Serialize)]
 pub struct Elasticsearch {
     pub host: Url,
+    pub kibana: Url,
     pub username: String,
     pub password: String,
 }

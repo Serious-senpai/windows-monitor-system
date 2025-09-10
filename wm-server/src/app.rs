@@ -85,12 +85,12 @@ impl App {
     pub async fn elastic(&self) -> Option<Arc<ElasticsearchWrapper>> {
         match self
             ._elastic
-            .get_or_try_init(
-                async || match ElasticsearchWrapper::async_new(&self._config).await {
+            .get_or_try_init(async || {
+                match ElasticsearchWrapper::async_new(self._config.clone()).await {
                     Ok(inner) => Ok(Arc::new(inner)),
                     Err(e) => Err(e),
-                },
-            )
+                }
+            })
             .await
         {
             Ok(ptr) => Some(ptr.clone()),
