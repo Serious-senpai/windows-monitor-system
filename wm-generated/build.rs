@@ -106,11 +106,10 @@ fn process_object(
             "half_float" => "f16".to_string(),
             "integer" => "i32".to_string(),
             "ip" => "IpAddr".to_string(),
-            "keyword" | "text" => "String".to_string(),
+            "keyword" | "text" | "wildcard" => "String".to_string(),
             "long" => "i64".to_string(),
             "short" => "i16".to_string(),
             "unsigned_long" => "u64".to_string(),
-            "wildcard" => "String".to_string(),
             "object" => {
                 let (nested_type, nested_code) = process_object(
                     field_name.clone(),

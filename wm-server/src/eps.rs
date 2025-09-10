@@ -70,3 +70,9 @@ impl EPSQueue {
         self._receive_count
     }
 }
+
+impl Default for EPSQueue {
+    fn default() -> Self {
+        Self::new()
+    }
+}

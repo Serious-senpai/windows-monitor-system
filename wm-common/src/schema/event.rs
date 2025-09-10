@@ -58,11 +58,11 @@ pub enum EventData {
 impl EventData {
     pub fn event_type(&self) -> &'static str {
         match self {
-            EventData::File { .. } => "file",
-            EventData::Image { .. } => "image",
-            EventData::Process { .. } => "process",
-            EventData::TcpIp { .. } => "tcpip",
-            EventData::UdpIp { .. } => "udpip",
+            Self::File { .. } => "file",
+            Self::Image { .. } => "image",
+            Self::Process { .. } => "process",
+            Self::TcpIp { .. } => "tcpip",
+            Self::UdpIp { .. } => "udpip",
         }
     }
 }
@@ -152,13 +152,7 @@ impl CapturedEventRecord {
                 file.path = Some(file_name.clone());
                 ecs.file = Some(file);
             }
-            EventData::Image {
-                image_base,
-                image_size,
-                process_id,
-                image_checksum,
-                file_name,
-            } => {
+            EventData::Image { file_name, .. } => {
                 event.action = Some(
                     match self.event.opcode {
                         2 => "image-unload",
@@ -186,14 +180,11 @@ impl CapturedEventRecord {
                 ecs.dll = Some(dll);
             }
             EventData::Process {
-                unique_process_key,
                 process_id,
-                parent_id,
-                session_id,
                 exit_status,
-                directory_table_base,
                 image_file_name,
                 command_line,
+                ..
             } => {
                 event.action = Some(
                     match self.event.opcode {
@@ -217,25 +208,25 @@ impl CapturedEventRecord {
                 let mut process = ECS_Process::new();
                 process.command_line = Some(command_line.clone());
                 process.executable = Some(image_file_name.clone());
-                process.exit_code = Some(*exit_status as i64);
-                process.pid = Some(*process_id as i64);
+                process.exit_code = Some(i64::from(*exit_status));
+                process.pid = Some(i64::from(*process_id));
                 ecs.process = Some(process);
             }
             EventData::TcpIp {
-                pid,
                 size,
                 daddr,
                 saddr,
                 dport,
                 sport,
+                ..
             }
             | EventData::UdpIp {
-                pid,
                 size,
                 daddr,
                 saddr,
                 dport,
                 sport,
+                ..
             } => {
                 event.action = Some(
                     match self.event.opcode {
@@ -254,16 +245,16 @@ impl CapturedEventRecord {
 
                 let mut source = ECS_Source::new();
                 source.address = Some(saddr.to_string());
-                source.bytes = Some(*size as i64);
+                source.bytes = Some(i64::from(*size));
                 source.ip = Some(*saddr);
-                source.port = Some(*sport as i64);
+                source.port = Some(i64::from(*sport));
                 ecs.source = Some(source);
 
                 let mut destination = ECS_Destination::new();
                 destination.address = Some(daddr.to_string());
-                destination.bytes = Some(*size as i64);
+                destination.bytes = Some(i64::from(*size));
                 destination.ip = Some(*daddr);
-                destination.port = Some(*dport as i64);
+                destination.port = Some(i64::from(*dport));
                 ecs.destination = Some(destination);
             }
         }
