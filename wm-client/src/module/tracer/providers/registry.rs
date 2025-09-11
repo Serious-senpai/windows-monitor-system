@@ -2,16 +2,16 @@ use std::error::Error;
 use std::sync::Arc;
 
 use ferrisetw::parser::{Parser, Pointer};
-use ferrisetw::provider::kernel_providers::{IMAGE_LOAD_PROVIDER, KernelProvider};
+use ferrisetw::provider::kernel_providers::{KernelProvider, REGISTRY_PROVIDER};
 use ferrisetw::{EventRecord, SchemaLocator};
 use wm_common::error::RuntimeError;
 use wm_common::schema::event::{Event, EventData};
 
 use crate::module::tracer::providers::ProviderWrapper;
 
-pub struct ImageProviderWrapper;
+pub struct RegistryProviderWrapper;
 
-impl ProviderWrapper for ImageProviderWrapper {
+impl ProviderWrapper for RegistryProviderWrapper {
     fn new() -> Self
     where
         Self: Sized,
@@ -20,11 +20,18 @@ impl ProviderWrapper for ImageProviderWrapper {
     }
 
     fn provider(self: Arc<Self>) -> &'static KernelProvider {
-        &IMAGE_LOAD_PROVIDER
+        &REGISTRY_PROVIDER
     }
 
     fn filter(self: Arc<Self>, record: &EventRecord) -> bool {
-        record.opcode() == 2 || record.opcode() == 10
+        record.opcode() == 10
+            || record.opcode() == 12
+            || record.opcode() == 14
+            || record.opcode() == 15
+            || record.opcode() == 20
+            || record.opcode() == 21
+            || record.opcode() == 22
+            || record.opcode() == 23
     }
 
     fn callback(
@@ -35,30 +42,30 @@ impl ProviderWrapper for ImageProviderWrapper {
         match schema_locator.event_schema(record) {
             Ok(schema) => {
                 let parser = Parser::create(record, &schema);
-                let image_base = parser
-                    .try_parse::<Pointer>("ImageBase")
+                let initial_time = parser
+                    .try_parse::<i64>("InitialTime")
                     .map_err(RuntimeError::from)?;
-                let image_size = parser
-                    .try_parse::<Pointer>("ImageSize")
+                let status = parser
+                    .try_parse::<Pointer>("Status")
                     .map_err(RuntimeError::from)?;
-                let process_id = parser
-                    .try_parse::<u32>("ProcessId")
+                let index = parser
+                    .try_parse::<u32>("Index")
                     .map_err(RuntimeError::from)?;
-                let image_checksum = parser
-                    .try_parse::<u32>("ImageChecksum")
+                let key_handle = parser
+                    .try_parse::<Pointer>("KeyHandle")
                     .map_err(RuntimeError::from)?;
-                let file_name = parser
-                    .try_parse::<String>("FileName")
+                let key_name = parser
+                    .try_parse::<String>("KeyName")
                     .map_err(RuntimeError::from)?;
 
                 Ok(Event::new(
                     &record,
-                    EventData::Image {
-                        image_base: *image_base,
-                        image_size: *image_size,
-                        process_id,
-                        image_checksum,
-                        file_name,
+                    EventData::Registry {
+                        initial_time,
+                        status: *status,
+                        index,
+                        key_handle: *key_handle,
+                        key_name: key_name.clone(),
                     },
                 ))
             }

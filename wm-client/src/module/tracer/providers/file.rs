@@ -53,18 +53,13 @@ impl ProviderWrapper for FileProviderWrapper {
                     .try_parse::<String>("FileName")
                     .map_err(RuntimeError::from)?;
 
-                Ok(Event {
-                    guid: format!("{:?}", record.provider_id()),
-                    raw_timestamp: record.raw_timestamp(),
-                    process_id: record.process_id(),
-                    thread_id: record.thread_id(),
-                    event_id: record.event_id(),
-                    opcode: record.opcode(),
-                    data: EventData::File {
+                Ok(Event::new(
+                    &record,
+                    EventData::File {
                         file_object: *file_object,
                         file_name,
                     },
-                })
+                ))
             }
             Err(e) => Err(RuntimeError::new(format!("SchemaError: {e:?}")))?,
         }

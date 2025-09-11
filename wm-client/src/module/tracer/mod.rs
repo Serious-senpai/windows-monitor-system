@@ -22,6 +22,7 @@ use crate::module::tracer::providers::ProviderWrapper;
 use crate::module::tracer::providers::file::FileProviderWrapper;
 use crate::module::tracer::providers::image::ImageProviderWrapper;
 use crate::module::tracer::providers::process::ProcessProviderWrapper;
+use crate::module::tracer::providers::registry::RegistryProviderWrapper;
 use crate::module::tracer::providers::tcpip::TcpIpProviderWrapper;
 use crate::module::tracer::providers::udpip::UdpIpProviderWrapper;
 
@@ -64,6 +65,7 @@ impl EventTracer {
             Arc::new(FileProviderWrapper::new()),
             Arc::new(ImageProviderWrapper::new()),
             Arc::new(ProcessProviderWrapper::new()),
+            Arc::new(RegistryProviderWrapper::new()),
             Arc::new(TcpIpProviderWrapper::new()),
             Arc::new(UdpIpProviderWrapper::new()),
             // Add other providers here as needed

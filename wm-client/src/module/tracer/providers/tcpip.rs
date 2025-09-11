@@ -53,14 +53,9 @@ impl ProviderWrapper for TcpIpProviderWrapper {
                     .try_parse::<u16>("sport")
                     .map_err(RuntimeError::from)?;
 
-                Ok(Event {
-                    guid: format!("{:?}", record.provider_id()),
-                    raw_timestamp: record.raw_timestamp(),
-                    process_id: pid,
-                    thread_id: record.thread_id(),
-                    event_id: record.event_id(),
-                    opcode: record.opcode(),
-                    data: EventData::TcpIp {
+                Ok(Event::new(
+                    &record,
+                    EventData::TcpIp {
                         pid,
                         size,
                         daddr,
@@ -68,7 +63,7 @@ impl ProviderWrapper for TcpIpProviderWrapper {
                         dport,
                         sport,
                     },
-                })
+                ))
             }
             Err(e) => Err(RuntimeError::new(format!("SchemaError: {e:?}")))?,
         }

@@ -3,11 +3,12 @@ use std::path::Path;
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
+use ferrisetw::EventRecord;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use wm_generated::ecs::{
     ECS, ECS_Destination, ECS_Dll, ECS_Event, ECS_File, ECS_Host, ECS_Host_Cpu, ECS_Host_Os,
-    ECS_Process, ECS_Source,
+    ECS_Process, ECS_Registry, ECS_Source,
 };
 
 use crate::schema::sysinfo::SystemInfo;
@@ -37,6 +38,13 @@ pub enum EventData {
         image_file_name: String,
         command_line: String,
     },
+    Registry {
+        initial_time: i64,
+        status: usize,
+        index: u32,
+        key_handle: usize,
+        key_name: String,
+    },
     TcpIp {
         pid: u32,
         size: u32,
@@ -61,6 +69,7 @@ impl EventData {
             Self::File { .. } => "file",
             Self::Image { .. } => "image",
             Self::Process { .. } => "process",
+            Self::Registry { .. } => "registry",
             Self::TcpIp { .. } => "tcpip",
             Self::UdpIp { .. } => "udpip",
         }
@@ -76,6 +85,20 @@ pub struct Event {
     pub event_id: u16,
     pub opcode: u8,
     pub data: EventData,
+}
+
+impl Event {
+    pub fn new(record: &EventRecord, data: EventData) -> Self {
+        Self {
+            guid: format!("{:?}", record.provider_id()),
+            raw_timestamp: record.raw_timestamp(),
+            process_id: record.process_id(),
+            thread_id: record.thread_id(),
+            event_id: record.event_id(),
+            opcode: record.opcode(),
+            data,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -112,6 +135,7 @@ impl CapturedEventRecord {
         event.ingested = Some(Utc::now());
         event.kind = Some("event".to_string());
         event.module = Some("wm-client".to_string());
+        event.original = Some(serde_json::to_string(self).unwrap());
         event.provider = Some("kernel".to_string());
 
         let mut ecs = ECS::new(windows_timestamp(self.event.raw_timestamp));
@@ -211,6 +235,37 @@ impl CapturedEventRecord {
                 process.exit_code = Some(i64::from(*exit_status));
                 process.pid = Some(i64::from(*process_id));
                 ecs.process = Some(process);
+            }
+            EventData::Registry { key_name, .. } => {
+                event.action = Some(
+                    match self.event.opcode {
+                        10 | 22 => "registry-create-key",
+                        12 | 23 => "registry-delete-key",
+                        14 => "registry-set-value",
+                        15 => "registry-delete-value",
+                        20 => "registry-set-info",
+                        21 => "registry-flush-key",
+                        _ => "registry-unknown",
+                    }
+                    .to_string(),
+                );
+                event.category = Some("registry".to_string());
+                event.outcome = Some("success".to_string());
+                event.type_ = Some(
+                    match self.event.opcode {
+                        10 | 22 => "creation",
+                        12 | 15 | 23 => "deletion",
+                        14 | 20 | 21 => "change",
+                        _ => "info",
+                    }
+                    .to_string(),
+                );
+
+                // let path = Path::new(key_name);
+
+                let mut registry = ECS_Registry::new();
+                registry.key = Some(key_name.clone());
+                ecs.registry = Some(registry);
             }
             EventData::TcpIp {
                 size,

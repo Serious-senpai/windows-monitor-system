@@ -60,14 +60,9 @@ impl ProviderWrapper for ProcessProviderWrapper {
                     .try_parse::<String>("CommandLine")
                     .map_err(RuntimeError::from)?;
 
-                Ok(Event {
-                    guid: format!("{:?}", record.provider_id()),
-                    raw_timestamp: record.raw_timestamp(),
-                    process_id,
-                    thread_id: record.thread_id(),
-                    event_id: record.event_id(),
-                    opcode: record.opcode(),
-                    data: EventData::Process {
+                Ok(Event::new(
+                    &record,
+                    EventData::Process {
                         unique_process_key: *unique_process_key,
                         process_id,
                         parent_id,
@@ -77,7 +72,7 @@ impl ProviderWrapper for ProcessProviderWrapper {
                         image_file_name,
                         command_line,
                     },
-                })
+                ))
             }
             Err(e) => Err(RuntimeError::new(format!("SchemaError: {e:?}")))?,
         }
