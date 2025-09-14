@@ -61,7 +61,7 @@ impl ProviderWrapper for ProcessProviderWrapper {
                     .map_err(RuntimeError::from)?;
 
                 Ok(Event::new(
-                    &record,
+                    record,
                     EventData::Process {
                         unique_process_key: *unique_process_key,
                         process_id,

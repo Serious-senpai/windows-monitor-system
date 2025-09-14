@@ -59,7 +59,7 @@ impl ProviderWrapper for RegistryProviderWrapper {
                     .map_err(RuntimeError::from)?;
 
                 Ok(Event::new(
-                    &record,
+                    record,
                     EventData::Registry {
                         initial_time,
                         status: *status,

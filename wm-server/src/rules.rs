@@ -27,10 +27,7 @@ async fn _query_rule_toml(
         .expect("Original rule_id is not a String")
         .to_string();
 
-    let mut references = rule["references"]
-        .as_array()
-        .map(|v| v.clone())
-        .unwrap_or_default();
+    let mut references = rule["references"].as_array().cloned().unwrap_or_default();
     references.push(entry.html_url.into());
 
     rule["rule_id"] = format!("custom-{old_rule_id}").into(); // Trick Kibana into thinking that this is not a prebuilt rule
@@ -46,18 +43,16 @@ async fn _query_rule_toml(
             .to_string();
         rule[field] = new_terms.remove("value").unwrap_or_default();
 
-        if let Some(mut history_window_start) = new_terms.remove("history_window_start") {
-            if let Some(pairs) = history_window_start.as_array_mut() {
-                for pair in pairs {
-                    let field = pair["field"]
-                        .as_str()
-                        .expect(
-                            "Original new_terms.history_window_start.<index>.field is not a String",
-                        )
-                        .to_string();
+        if let Some(mut history_window_start) = new_terms.remove("history_window_start")
+            && let Some(pairs) = history_window_start.as_array_mut()
+        {
+            for pair in pairs {
+                let field = pair["field"]
+                    .as_str()
+                    .expect("Original new_terms.history_window_start.<index>.field is not a String")
+                    .to_string();
 
-                    rule[field] = _extract_key(pair, "value");
-                }
+                rule[field] = _extract_key(pair, "value");
             }
         }
     }

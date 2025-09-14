@@ -52,7 +52,7 @@ impl ProviderWrapper for ImageProviderWrapper {
                     .map_err(RuntimeError::from)?;
 
                 Ok(Event::new(
-                    &record,
+                    record,
                     EventData::Image {
                         image_base: *image_base,
                         image_size: *image_size,

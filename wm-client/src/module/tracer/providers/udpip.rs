@@ -65,7 +65,7 @@ impl ProviderWrapper for UdpIpProviderWrapper {
                     .map_err(RuntimeError::from)?;
 
                 Ok(Event::new(
-                    &record,
+                    record,
                     EventData::UdpIp {
                         pid,
                         size,

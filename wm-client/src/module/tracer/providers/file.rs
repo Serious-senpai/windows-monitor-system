@@ -54,7 +54,7 @@ impl ProviderWrapper for FileProviderWrapper {
                     .map_err(RuntimeError::from)?;
 
                 Ok(Event::new(
-                    &record,
+                    record,
                     EventData::File {
                         file_object: *file_object,
                         file_name,

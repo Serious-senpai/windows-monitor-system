@@ -54,7 +54,7 @@ impl ProviderWrapper for TcpIpProviderWrapper {
                     .map_err(RuntimeError::from)?;
 
                 Ok(Event::new(
-                    &record,
+                    record,
                     EventData::TcpIp {
                         pid,
                         size,
