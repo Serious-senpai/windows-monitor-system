@@ -18,7 +18,6 @@ use wm_common::schema::event::CapturedEventRecord;
 use crate::app::App;
 use crate::responses::ResponseBuilder;
 use crate::routes::abc::Service;
-use crate::utils::parse_query_map;
 
 pub struct BackupService;
 
@@ -35,9 +34,6 @@ impl Service for BackupService {
         request: Request<Incoming>,
     ) -> Response<BoxBody<Bytes, hyper::Error>> {
         if request.method() == Method::POST {
-            let query = parse_query_map(&request);
-            let dummy = query.contains_key("dummy");
-
             let stream = request
                 .into_body()
                 .into_data_stream()
@@ -53,44 +49,38 @@ impl Service for BackupService {
                     }
 
                     match serde_json::from_slice::<Vec<CapturedEventRecord>>(&buffer) {
-                        Ok(events) => {
-                            if !dummy {
-                                match app.elastic().await {
-                                    Some(elastic) => {
-                                        let mut body = vec![];
+                        Ok(events) => match app.elastic().await {
+                            Some(elastic) => {
+                                let mut body = vec![];
 
-                                        for event in events {
-                                            body.extend_from_slice(b"{\"create\":{}}\n");
+                                for event in events {
+                                    body.extend_from_slice(b"{\"create\":{}}\n");
 
-                                            let ecs = event.to_ecs(peer.ip());
-                                            serde_json::to_writer(&mut body, &ecs).unwrap();
-                                            body.push(b'\n');
-                                        }
+                                    let ecs = event.to_ecs(peer.ip());
+                                    serde_json::to_writer(&mut body, &ecs).unwrap();
+                                    body.push(b'\n');
+                                }
 
-                                        if let Err(e) = elastic
-                                            .client()
-                                            .bulk(BulkParts::Index(&format!(
-                                                "events.windows-monitor-ecs-{}",
-                                                peer.ip()
-                                            )))
-                                            .body(vec![body])
-                                            .send()
-                                            .await
-                                        {
-                                            error!("{e}");
-                                            return ResponseBuilder::default(
-                                                StatusCode::SERVICE_UNAVAILABLE,
-                                            );
-                                        }
-                                    }
-                                    None => {
-                                        return ResponseBuilder::default(
-                                            StatusCode::SERVICE_UNAVAILABLE,
-                                        );
-                                    }
+                                if let Err(e) = elastic
+                                    .client()
+                                    .bulk(BulkParts::Index(&format!(
+                                        "events.windows-monitor-ecs-{}",
+                                        peer.ip()
+                                    )))
+                                    .body(vec![body])
+                                    .send()
+                                    .await
+                                {
+                                    error!("{e}");
+                                    return ResponseBuilder::default(
+                                        StatusCode::SERVICE_UNAVAILABLE,
+                                    );
                                 }
                             }
-                        }
+                            None => {
+                                return ResponseBuilder::default(StatusCode::SERVICE_UNAVAILABLE);
+                            }
+                        },
                         Err(e) => {
                             error!("Failed to parse backup events: {e}");
                         }

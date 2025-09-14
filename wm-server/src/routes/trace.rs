@@ -20,7 +20,6 @@ use crate::app::App;
 use crate::eps::EPSQueue;
 use crate::responses::ResponseBuilder;
 use crate::routes::abc::Service;
-use crate::utils::parse_query_map;
 
 pub struct TraceService;
 
@@ -37,9 +36,6 @@ impl Service for TraceService {
         request: Request<Incoming>,
     ) -> Response<BoxBody<Bytes, hyper::Error>> {
         if request.method() == Method::POST {
-            let query = parse_query_map(&request);
-            let dummy = query.contains_key("dummy");
-
             let stream = request
                 .into_body()
                 .into_data_stream()
@@ -65,38 +61,32 @@ impl Service for TraceService {
 
                     (queue.emit_eps(), queue.receive_eps())
                 };
-                if !dummy {
-                    match app.elastic().await {
-                        Some(elastic) => {
-                            let mut body = vec![];
+                if let Some(elastic) = app.elastic().await {
+                    tokio::spawn(async move {
+                        let mut body = vec![];
 
-                            debug!("Pushing {} events to Elasticsearch", data.len());
-                            for event in data {
-                                body.extend_from_slice(b"{\"create\":{}}\n");
+                        debug!("Pushing {} events to Elasticsearch", data.len());
+                        for event in data {
+                            body.extend_from_slice(b"{\"create\":{}}\n");
 
-                                let ecs = event.to_ecs(peer.ip());
-                                serde_json::to_writer(&mut body, &ecs).unwrap();
-                                body.push(b'\n');
-                            }
-
-                            if let Err(e) = elastic
-                                .client()
-                                .bulk(BulkParts::Index(&format!(
-                                    "events.windows-monitor-ecs-{}",
-                                    peer.ip()
-                                )))
-                                .body(vec![body])
-                                .send()
-                                .await
-                            {
-                                error!("{e}");
-                                return ResponseBuilder::default(StatusCode::SERVICE_UNAVAILABLE);
-                            }
+                            let ecs = event.to_ecs(peer.ip());
+                            serde_json::to_writer(&mut body, &ecs).unwrap();
+                            body.push(b'\n');
                         }
-                        None => {
-                            return ResponseBuilder::default(StatusCode::SERVICE_UNAVAILABLE);
+
+                        if let Err(e) = elastic
+                            .client()
+                            .bulk(BulkParts::Index(&format!(
+                                "events.windows-monitor-ecs-{}",
+                                peer.ip()
+                            )))
+                            .body(vec![body])
+                            .send()
+                            .await
+                        {
+                            error!("{e}");
                         }
-                    }
+                    });
                 }
 
                 return ResponseBuilder::json(

@@ -11,6 +11,7 @@ license = "GPL-2.0-or-later"
 async-compression = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
+clap = { workspace = true }
 config-file = { workspace = true }
 elasticsearch = "^9.0.0-alpha.1"
 futures-util = "^0.3.31"
@@ -29,6 +30,7 @@ serde_json = { workspace = true }
 tokio = { workspace = true }
 tokio-rustls = "^0.26.2"
 tokio-util = "^0.7.16"
+toml = "^0.9.5"
 url = { workspace = true }
 wm-common = { path = "../wm-common" }
 

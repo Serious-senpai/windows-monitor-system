@@ -7,7 +7,6 @@ use elasticsearch::http::response::Response;
 use elasticsearch::http::transport::Transport;
 use elasticsearch::indices::IndicesPutIndexTemplateParts;
 use log::{debug, warn};
-use openssl::base64::encode_block;
 
 use crate::configuration::Configuration;
 
@@ -47,14 +46,6 @@ impl KibanaClient {
         })
     }
 
-    fn _auth_header(&self) -> String {
-        let credentials = format!(
-            "{}:{}",
-            self._config.elasticsearch.username, self._config.elasticsearch.password
-        );
-        format!("Basic {}", encode_block(credentials.as_bytes()))
-    }
-
     pub fn get(&self, endpoint: &str) -> reqwest::RequestBuilder {
         self.request(reqwest::Method::GET, endpoint)
     }
@@ -86,9 +77,11 @@ impl KibanaClient {
             .kibana
             .join(endpoint)
             .unwrap_or_else(|_| panic!("Failed to construct URL to {endpoint}"));
-        self._http
-            .request(method, url)
-            .header("Authorization", self._auth_header())
+
+        self._http.request(method, url).basic_auth(
+            &self._config.elasticsearch.username,
+            Some(&self._config.elasticsearch.password),
+        )
     }
 }
 

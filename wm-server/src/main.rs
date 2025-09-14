@@ -4,15 +4,21 @@ use std::fs::File;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use clap::Parser;
 use config_file::FromConfigFile;
-use log::debug;
+use log::{debug, error, info};
+use reqwest::multipart::{Form, Part};
 use tokio::fs;
 use wm_common::logger::initialize_logger;
 use wm_server::app::App;
+use wm_server::cli::{Arguments, ServerAction};
 use wm_server::configuration::Configuration;
+use wm_server::rules;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+    let arguments = Arguments::parse();
+
     let executable_path = env::current_exe().expect("Failed to get current executable path");
     let app_directory = executable_path
         .parent()
@@ -41,7 +47,44 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     debug!("Initialized logger");
 
     let app = Arc::new(App::async_new(configuration).await?);
-    app.run().await?;
+    match arguments.command {
+        ServerAction::Start => {
+            app.run().await?;
+        }
+        ServerAction::UpdateRules => {
+            let elastic = app
+                .elastic()
+                .await
+                .expect("Unable to initialize Elasticsearch client");
+            let kibana = elastic.kibana();
+
+            let rules = rules::fetch_remote_rules().await?;
+            let mut buf = vec![];
+            for rule in rules {
+                serde_json::to_writer(&mut buf, &rule)?;
+                buf.push(b'\n');
+            }
+
+            let form = Form::new().part("file", Part::stream(buf).file_name("rules.ndjson"));
+            match kibana
+                .post("/api/detection_engine/rules/_import?overwrite=true")
+                .header("kbn-xsrf", "true")
+                .multipart(form)
+                .send()
+                .await
+            {
+                Ok(response) => {
+                    info!("{}", response.status());
+
+                    let text = response.text().await?;
+                    info!("{text}");
+                }
+                Err(e) => {
+                    error!("Unable to send request to Kibana: {e}");
+                }
+            }
+        }
+    }
 
     Ok(())
 }
