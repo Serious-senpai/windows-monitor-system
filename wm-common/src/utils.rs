@@ -3,7 +3,8 @@ use std::sync::LazyLock;
 
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use windows::Win32::System::WindowsProgramming::{GetComputerNameA, MAX_COMPUTERNAME_LENGTH};
-use windows::core::PSTR;
+use windows::Win32::UI::Shell::CommandLineToArgvW;
+use windows::core::{PCWSTR, PSTR};
 
 use crate::error::WindowsError;
 
@@ -33,4 +34,22 @@ pub fn get_computer_name() -> Result<String, WindowsError> {
         let result = slice::from_raw_parts(name.as_ptr(), length as usize);
         Ok(String::from_utf8_lossy(result).to_string())
     }
+}
+
+pub fn split_command_line(command_line: &str) -> Vec<String> {
+    let mut argc = 0;
+    let utf16 = command_line
+        .encode_utf16()
+        .chain(Some(0))
+        .collect::<Vec<u16>>();
+
+    let mut result = vec![];
+    unsafe {
+        let argv = CommandLineToArgvW(PCWSTR::from_raw(utf16.as_ptr()), &mut argc);
+        for argument in slice::from_raw_parts(argv, argc as usize) {
+            result.push(argument.to_string().unwrap_or_default());
+        }
+    }
+
+    result
 }

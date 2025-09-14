@@ -12,7 +12,7 @@ use wm_generated::ecs::{
 };
 
 use crate::schema::sysinfo::SystemInfo;
-use crate::utils::windows_timestamp;
+use crate::utils::{split_command_line, windows_timestamp};
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type", content = "data")]
@@ -111,36 +111,36 @@ pub struct CapturedEventRecord {
 impl CapturedEventRecord {
     pub fn to_ecs(&self, ip: IpAddr) -> ECS {
         let mut os = ECS_Host_Os::new();
-        os.family = Some(self.system.os.platform.clone());
-        os.full = Some(self.system.os.full.clone());
-        os.kernel = Some(self.system.os.kernel.clone());
-        os.name = Some(self.system.os.name.clone());
-        os.platform = Some(self.system.os.platform.clone());
-        os.type_ = Some(self.system.os.platform.clone());
-        os.version = Some(self.system.os.version.clone());
+        os.family = Some(vec![self.system.os.platform.clone()]);
+        os.full = Some(vec![self.system.os.full.clone()]);
+        os.kernel = Some(vec![self.system.os.kernel.clone()]);
+        os.name = Some(vec![self.system.os.name.clone()]);
+        os.platform = Some(vec![self.system.os.platform.clone()]);
+        os.type_ = Some(vec![self.system.os.platform.clone()]);
+        os.version = Some(vec![self.system.os.version.clone()]);
 
         let mut cpu = ECS_Host_Cpu::new();
         cpu.usage = Some(self.system.cpu.usage);
 
         let mut host = ECS_Host::new();
-        host.architecture = Some(self.system.architecture.clone());
-        host.hostname = Some(self.system.hostname.clone());
-        host.id = Some(ip.to_string());
+        host.architecture = Some(vec![self.system.architecture.clone()]);
+        host.hostname = Some(vec![self.system.hostname.clone()]);
+        host.id = Some(vec![ip.to_string()]);
         host.ip = Some(ip);
-        host.name = Some(self.system.hostname.clone());
+        host.name = Some(vec![self.system.hostname.clone()]);
         host.os = Some(os);
 
         let mut event = ECS_Event::new();
         event.created = Some(self.captured);
         event.ingested = Some(Utc::now());
-        event.kind = Some("event".to_string());
-        event.module = Some("wm-client".to_string());
-        event.original = Some(serde_json::to_string(self).unwrap());
-        event.provider = Some("kernel".to_string());
+        event.kind = Some(vec!["event".to_string()]);
+        event.module = Some(vec!["wm-client".to_string()]);
+        event.original = Some(vec![serde_json::to_string(self).unwrap()]);
+        event.provider = Some(vec!["kernel".to_string()]);
 
         let mut ecs = ECS::new(windows_timestamp(self.event.raw_timestamp));
         ecs.labels = Some(json!({"application": "windows-monitor"}));
-        ecs.tags = Some(self.event.data.event_type().into());
+        ecs.tags = Some(vec![self.event.data.event_type().into()]);
         ecs.host = Some(host);
 
         match &self.event.data {
@@ -148,7 +148,7 @@ impl CapturedEventRecord {
                 file_object,
                 file_name,
             } => {
-                event.action = Some(
+                event.action = Some(vec![
                     match self.event.opcode {
                         0 => "file-name",
                         32 => "file-create",
@@ -156,51 +156,55 @@ impl CapturedEventRecord {
                         _ => "file-unknown",
                     }
                     .to_string(),
-                );
-                event.category = Some("file".to_string());
-                event.outcome = Some("success".to_string());
-                event.type_ = Some(
+                ]);
+                event.category = Some(vec!["file".to_string()]);
+                event.outcome = Some(vec!["success".to_string()]);
+                event.type_ = Some(vec![
                     match self.event.opcode {
                         32 => "creation",
                         35 => "deletion",
                         _ => "info",
                     }
                     .to_string(),
-                );
+                ]);
 
                 let path = Path::new(file_name);
 
                 let mut file = ECS_File::new();
-                file.inode = Some(file_object.to_string());
-                file.name = path.file_name().map(|s| s.to_string_lossy().to_string());
-                file.path = Some(file_name.clone());
+                file.inode = Some(vec![file_object.to_string()]);
+                file.name = path
+                    .file_name()
+                    .map(|s| vec![s.to_string_lossy().to_string()]);
+                file.path = Some(vec![file_name.clone()]);
                 ecs.file = Some(file);
             }
             EventData::Image { file_name, .. } => {
-                event.action = Some(
+                event.action = Some(vec![
                     match self.event.opcode {
                         2 => "image-unload",
                         10 => "image-load",
                         _ => "image-unknown",
                     }
                     .to_string(),
-                );
-                event.category = Some("library".to_string());
-                event.outcome = Some("success".to_string());
-                event.type_ = Some(
+                ]);
+                event.category = Some(vec!["library".to_string()]);
+                event.outcome = Some(vec!["success".to_string()]);
+                event.type_ = Some(vec![
                     match self.event.opcode {
                         2 => "end",
                         10 => "start",
                         _ => "info",
                     }
                     .to_string(),
-                );
+                ]);
 
                 let path = Path::new(file_name);
 
                 let mut dll = ECS_Dll::new();
-                dll.name = path.file_name().map(|s| s.to_string_lossy().to_string());
-                dll.path = Some(file_name.clone());
+                dll.name = path
+                    .file_name()
+                    .map(|s| vec![s.to_string_lossy().to_string()]);
+                dll.path = Some(vec![file_name.clone()]);
                 ecs.dll = Some(dll);
             }
             EventData::Process {
@@ -210,34 +214,39 @@ impl CapturedEventRecord {
                 command_line,
                 ..
             } => {
-                event.action = Some(
+                event.action = Some(vec![
                     match self.event.opcode {
                         1 => "process-start",
                         2 => "process-end",
                         _ => "process-unknown",
                     }
                     .to_string(),
-                );
-                event.category = Some("process".to_string());
-                event.outcome = Some("success".to_string());
-                event.type_ = Some(
+                ]);
+                event.category = Some(vec!["process".to_string()]);
+                event.outcome = Some(vec!["success".to_string()]);
+                event.type_ = Some(vec![
                     match self.event.opcode {
                         1 => "start",
                         2 => "end",
                         _ => "info",
                     }
                     .to_string(),
-                );
+                ]);
+
+                let args = split_command_line(command_line);
+                let args_count = args.len();
 
                 let mut process = ECS_Process::new();
-                process.command_line = Some(command_line.clone());
-                process.executable = Some(image_file_name.clone());
+                process.args = Some(args);
+                process.args_count = args_count.try_into().ok();
+                process.command_line = Some(vec![command_line.clone()]);
+                process.executable = Some(vec![image_file_name.clone()]);
                 process.exit_code = Some(i64::from(*exit_status));
                 process.pid = Some(i64::from(*process_id));
                 ecs.process = Some(process);
             }
             EventData::Registry { key_name, .. } => {
-                event.action = Some(
+                event.action = Some(vec![
                     match self.event.opcode {
                         10 | 22 => "registry-create-key",
                         12 | 23 => "registry-delete-key",
@@ -248,10 +257,10 @@ impl CapturedEventRecord {
                         _ => "registry-unknown",
                     }
                     .to_string(),
-                );
-                event.category = Some("registry".to_string());
-                event.outcome = Some("success".to_string());
-                event.type_ = Some(
+                ]);
+                event.category = Some(vec!["registry".to_string()]);
+                event.outcome = Some(vec!["success".to_string()]);
+                event.type_ = Some(vec![
                     match self.event.opcode {
                         10 | 22 => "creation",
                         12 | 15 | 23 => "deletion",
@@ -259,12 +268,12 @@ impl CapturedEventRecord {
                         _ => "info",
                     }
                     .to_string(),
-                );
+                ]);
 
                 // let path = Path::new(key_name);
 
                 let mut registry = ECS_Registry::new();
-                registry.key = Some(key_name.clone());
+                registry.key = Some(vec![key_name.clone()]);
                 ecs.registry = Some(registry);
             }
             EventData::TcpIp {
@@ -283,7 +292,7 @@ impl CapturedEventRecord {
                 sport,
                 ..
             } => {
-                event.action = Some(
+                event.action = Some(vec![
                     match self.event.opcode {
                         10 => "udp-send",
                         11 => "udp-receive",
@@ -293,20 +302,20 @@ impl CapturedEventRecord {
                         _ => "tcp-udp-unknown",
                     }
                     .to_string(),
-                );
-                event.category = Some("network".to_string());
-                event.outcome = Some("success".to_string());
-                event.type_ = Some("connection".to_string());
+                ]);
+                event.category = Some(vec!["network".to_string()]);
+                event.outcome = Some(vec!["success".to_string()]);
+                event.type_ = Some(vec!["connection".to_string()]);
 
                 let mut source = ECS_Source::new();
-                source.address = Some(saddr.to_string());
+                source.address = Some(vec![saddr.to_string()]);
                 source.bytes = Some(i64::from(*size));
                 source.ip = Some(*saddr);
                 source.port = Some(i64::from(*sport));
                 ecs.source = Some(source);
 
                 let mut destination = ECS_Destination::new();
-                destination.address = Some(daddr.to_string());
+                destination.address = Some(vec![daddr.to_string()]);
                 destination.bytes = Some(i64::from(*size));
                 destination.ip = Some(*daddr);
                 destination.port = Some(i64::from(*dport));

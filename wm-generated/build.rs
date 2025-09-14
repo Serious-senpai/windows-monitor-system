@@ -105,7 +105,7 @@ fn process_object(
             "half_float" => "f16".to_string(),
             "integer" => "i32".to_string(),
             "ip" => "IpAddr".to_string(),
-            "keyword" | "text" | "wildcard" => "String".to_string(),
+            "keyword" | "text" | "wildcard" => "Vec<String>".to_string(),
             "long" => "i64".to_string(),
             "short" => "i16".to_string(),
             "unsigned_long" => "u64".to_string(),
