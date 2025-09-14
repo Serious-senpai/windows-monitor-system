@@ -84,7 +84,7 @@ impl Service for TraceService {
                             .send()
                             .await
                         {
-                            error!("{e}");
+                            error!("Elasticsearch API error: {e}");
                         }
                     });
                 }

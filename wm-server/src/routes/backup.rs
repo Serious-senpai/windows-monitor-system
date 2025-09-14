@@ -71,7 +71,7 @@ impl Service for BackupService {
                                     .send()
                                     .await
                                 {
-                                    error!("{e}");
+                                    error!("Elasticsearch API error: {e}");
                                     return ResponseBuilder::default(
                                         StatusCode::SERVICE_UNAVAILABLE,
                                     );
@@ -83,6 +83,7 @@ impl Service for BackupService {
                         },
                         Err(e) => {
                             error!("Failed to parse backup events: {e}");
+                            return ResponseBuilder::default(StatusCode::BAD_REQUEST);
                         }
                     }
 

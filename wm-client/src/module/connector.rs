@@ -7,6 +7,7 @@ use async_compression::tokio::bufread::ZstdEncoder;
 use async_trait::async_trait;
 use bytes::BytesMut;
 use log::{debug, error};
+use tokio::fs;
 use tokio::io::AsyncReadExt;
 use tokio::sync::{Mutex, RwLock, Semaphore, mpsc};
 use tokio::task::JoinHandle;
@@ -72,12 +73,18 @@ impl Connector {
         let http_cloned = http.clone();
         let upload_backup_task = tokio::spawn(async move {
             loop {
-                let task = backup_cloned.lock().await.upload(http_cloned.clone());
-                if let Err(e) = task.await {
+                if let Err(e) = Backup::upload(backup_cloned.clone(), http_cloned.clone()).await {
                     error!("Unable to upload backup: {e}");
                 }
 
                 sleep(Duration::from_secs(5)).await;
+
+                let mut backup = backup_cloned.lock().await;
+                if let Ok(metadata) = fs::metadata(backup.path()).await
+                    && metadata.len() > (5 << 20)
+                {
+                    backup.switch_backup().await;
+                }
             }
         });
 
