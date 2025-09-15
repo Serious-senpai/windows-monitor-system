@@ -9,7 +9,7 @@ use bytes::BytesMut;
 use log::{debug, error};
 use tokio::fs;
 use tokio::io::AsyncReadExt;
-use tokio::sync::{Mutex, RwLock, Semaphore, mpsc};
+use tokio::sync::{Mutex, OwnedMutexGuard, RwLock, mpsc};
 use tokio::task::JoinHandle;
 use tokio::time::{sleep, timeout};
 use wm_common::error::RuntimeError;
@@ -29,7 +29,6 @@ pub struct Connector {
     _backup: Arc<Mutex<Backup>>,
 
     _http: Arc<HttpClient>,
-    _http_semaphore: Semaphore,
 
     _errors_count: Arc<RwLock<usize>>,
     _reconnect_task: JoinHandle<()>,
@@ -94,7 +93,6 @@ impl Connector {
             _running: RwLock::new(false),
             _backup: backup,
             _http: http,
-            _http_semaphore: Semaphore::new(concurrency_limit),
             _errors_count: errors_count,
             _reconnect_task: reconnect_task,
             _upload_backup_task: upload_backup_task,
@@ -118,7 +116,7 @@ impl Connector {
 
     /// Input must contain only the opening bracket `[` OR an incomplete JSON array with a trailing comma
     /// e.g. `[1, 2, 3,`
-    async fn _send_payload_utils(self: &Arc<Self>, raw_payload: &mut Vec<u8>) {
+    async fn _send_payload_utils(self: &Arc<Self>, mut raw_payload: OwnedMutexGuard<Vec<u8>>) {
         if raw_payload.len() == 1 {
             return;
         }
@@ -144,47 +142,44 @@ impl Connector {
                     buffer.len(),
                 );
 
-                #[allow(clippy::redundant_pattern_matching)] // required to acquire semaphore
-                if let Ok(_) = self._http_semaphore.acquire().await {
-                    // Connection state may have been updated while waiting for the semaphore
-                    if self._disconnected().await {
-                        write_to_backup = true;
-                    } else {
-                        let success = match self
-                            ._http
-                            .api()
-                            .post("/trace")
-                            .body(buffer.clone().freeze())
-                            .send()
-                            .await
-                        {
-                            Ok(response) => {
-                                response.status() == 200
-                                    && match response.json::<TraceResponse>().await {
-                                        Ok(data) => {
-                                            debug!("Server response {data:?}");
-                                            true
-                                        }
-                                        Err(e) => {
-                                            error!("Invalid server JSON response: {e}");
-                                            false
-                                        }
+                // Connection state may have been updated while waiting for the semaphore
+                if self._disconnected().await {
+                    write_to_backup = true;
+                } else {
+                    let success = match self
+                        ._http
+                        .api()
+                        .post("/trace")
+                        .body(buffer.clone().freeze())
+                        .send()
+                        .await
+                    {
+                        Ok(response) => {
+                            response.status() == 200
+                                && match response.json::<TraceResponse>().await {
+                                    Ok(data) => {
+                                        debug!("Server response {data:?}");
+                                        true
                                     }
-                            }
-                            Err(e) => {
-                                error!(
-                                    "Failed to send trace event to server: {e:?}, writing to backup instead"
-                                );
-                                false
-                            }
-                        };
-
-                        if !success {
-                            let mut errors_count = self._errors_count.write().await;
-                            *errors_count = (*errors_count + 1)
-                                .min(self._configuration.event_post.concurrency_limit);
-                            write_to_backup = true;
+                                    Err(e) => {
+                                        error!("Invalid server JSON response: {e}");
+                                        false
+                                    }
+                                }
                         }
+                        Err(e) => {
+                            error!(
+                                "Failed to send trace event to server: {e:?}, writing to backup instead"
+                            );
+                            false
+                        }
+                    };
+
+                    if !success {
+                        let mut errors_count = self._errors_count.write().await;
+                        *errors_count = (*errors_count + 1)
+                            .min(self._configuration.event_post.concurrency_limit);
+                        write_to_backup = true;
                     }
                 }
             }
@@ -197,7 +192,7 @@ impl Connector {
                 );
 
                 let mut backup = self._backup.lock().await;
-                backup.write(raw_payload).await;
+                backup.write(raw_payload.as_slice()).await;
                 backup.write(b"\n").await;
             }
         }
@@ -225,32 +220,48 @@ impl Module for Connector {
 
         debug!("Running Connector");
 
-        let mut raw_payload =
-            Vec::with_capacity(self._configuration.event_post.flush_limit * 3 / 2);
-        raw_payload.push(b'[');
-
         let mut receiver = self._receiver.lock().await;
+        let mut raw_payload_pool = vec![];
+
+        for _ in 0..self._configuration.event_post.concurrency_limit {
+            let mut buffer = Vec::with_capacity(self._configuration.event_post.flush_limit * 3 / 2);
+            buffer.push(b'[');
+
+            let payload = Arc::new(Mutex::new(buffer));
+            raw_payload_pool.push(payload);
+        }
+
+        let mut index = 0;
         loop {
             if !*self._running.read().await {
                 break;
             }
 
-            match timeout(Duration::from_secs(1), receiver.recv()).await {
+            let received = timeout(Duration::from_secs(1), receiver.recv()).await;
+            if let Ok(None) = received {
+                break;
+            }
+
+            let mut payload = raw_payload_pool[index].clone().lock_owned().await;
+            let ptr = self.clone();
+            match received {
                 Ok(Some(event)) => {
-                    if let Err(e) = serde_json::to_writer(&mut raw_payload, &event) {
+                    if let Err(e) = serde_json::to_writer(&mut *payload, &event) {
                         error!("Failed to serialize {event:?}: {e}");
-                        raw_payload.clear();
-                        raw_payload.push(b'[');
+                        payload.clear();
+                        payload.push(b'[');
                     } else {
-                        raw_payload.push(b',');
-                        if raw_payload.len() > self._configuration.event_post.flush_limit {
-                            self._send_payload_utils(&mut raw_payload).await;
+                        payload.push(b',');
+                        if payload.len() > self._configuration.event_post.flush_limit {
+                            tokio::spawn(async move { ptr._send_payload_utils(payload).await });
+                            index = (index + 1) % raw_payload_pool.len();
                         }
                     }
                 }
-                Ok(None) => break,
+                Ok(None) => panic!("This should never happen"),
                 Err(_) => {
-                    self._send_payload_utils(&mut raw_payload).await;
+                    tokio::spawn(async move { ptr._send_payload_utils(payload).await });
+                    index = (index + 1) % raw_payload_pool.len();
                 }
             }
         }
