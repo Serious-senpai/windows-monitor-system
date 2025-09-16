@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use async_compression::Level;
 use async_compression::tokio::bufread::ZstdEncoder;
@@ -71,6 +71,7 @@ impl Connector {
         let backup_cloned = backup.clone();
         let http_cloned = http.clone();
         let upload_backup_task = tokio::spawn(async move {
+            let mut last_backup_switch = Instant::now();
             loop {
                 if let Err(e) = Backup::upload(backup_cloned.clone(), http_cloned.clone()).await {
                     error!("Unable to upload backup: {e}");
@@ -79,10 +80,15 @@ impl Connector {
                 sleep(Duration::from_secs(5)).await;
 
                 let mut backup = backup_cloned.lock().await;
+
                 if let Ok(metadata) = fs::metadata(backup.path()).await
-                    && metadata.len() > (5 << 20)
+                    && metadata.len() < (5 << 20)
+                    && last_backup_switch.elapsed() < Duration::from_secs(60)
                 {
+                    // We switch backup files at most once every 1 minute or if the file exceeds 5 MB
+                } else {
                     backup.switch_backup().await;
+                    last_backup_switch = Instant::now();
                 }
             }
         });
