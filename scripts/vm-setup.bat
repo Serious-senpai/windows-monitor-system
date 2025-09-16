@@ -18,8 +18,8 @@ echo @echo on>>migrate.bat
 echo copy /y %%root%%\scripts\events.bat events.bat>>migrate.bat
 echo copy /y %%root%%\target\release\wm-server.exe wm-server.exe>>migrate.bat
 echo copy /y %%root%%\target\release\wm-client.exe wm-client.exe>>migrate.bat
-echo copy %%root%%\target\release\client-config.yml client-config.yaml>>migrate.bat
-echo copy %%root%%\target\release\server-config.yml server-config.yaml>>migrate.bat
+echo copy /-y %%root%%\target\release\client-config.yml client-config.yaml>>migrate.bat
+echo copy /-y %%root%%\target\release\server-config.yml server-config.yaml>>migrate.bat
 
 echo To copy files from host to VM, use migrate.bat
 echo.
