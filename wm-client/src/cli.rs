@@ -36,4 +36,12 @@ pub enum ServiceAction {
         /// Path to write the extracted binary data to
         dest: PathBuf,
     },
+
+    MockProvider {
+        count: usize,
+    },
+
+    MockConsumer {
+        pid: u32,
+    },
 }

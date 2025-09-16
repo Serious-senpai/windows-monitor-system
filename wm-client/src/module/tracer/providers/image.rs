@@ -12,13 +12,6 @@ use crate::module::tracer::providers::ProviderWrapper;
 pub struct ImageProviderWrapper;
 
 impl ProviderWrapper for ImageProviderWrapper {
-    fn new() -> Self
-    where
-        Self: Sized,
-    {
-        Self {}
-    }
-
     fn provider(self: Arc<Self>) -> &'static KernelProvider {
         &IMAGE_LOAD_PROVIDER
     }

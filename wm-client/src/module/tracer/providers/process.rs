@@ -12,13 +12,6 @@ use crate::module::tracer::providers::ProviderWrapper;
 pub struct ProcessProviderWrapper;
 
 impl ProviderWrapper for ProcessProviderWrapper {
-    fn new() -> Self
-    where
-        Self: Sized,
-    {
-        Self {}
-    }
-
     fn provider(self: Arc<Self>) -> &'static KernelProvider {
         &PROCESS_PROVIDER
     }

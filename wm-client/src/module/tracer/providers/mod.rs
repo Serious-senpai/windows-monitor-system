@@ -1,5 +1,6 @@
 pub mod file;
 pub mod image;
+pub mod mock;
 pub mod process;
 pub mod registry;
 pub mod tcpip;
@@ -22,10 +23,6 @@ use crate::backup::Backup;
 use crate::module::tracer::enricher::BlockingEventEnricher;
 
 pub trait ProviderWrapper: Send + Sync {
-    fn new() -> Self
-    where
-        Self: Sized;
-
     fn provider(self: Arc<Self>) -> &'static KernelProvider;
 
     fn filter(self: Arc<Self>, _record: &EventRecord) -> bool {

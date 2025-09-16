@@ -13,13 +13,6 @@ use crate::module::tracer::providers::ProviderWrapper;
 pub struct TcpIpProviderWrapper;
 
 impl ProviderWrapper for TcpIpProviderWrapper {
-    fn new() -> Self
-    where
-        Self: Sized,
-    {
-        Self {}
-    }
-
     fn provider(self: Arc<Self>) -> &'static KernelProvider {
         &TCP_IP_PROVIDER
     }
