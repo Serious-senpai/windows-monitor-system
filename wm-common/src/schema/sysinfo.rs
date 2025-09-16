@@ -46,9 +46,38 @@ impl CPUInfo {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct SystemInfo {
+    #[serde(skip)]
+    _pre_serialize: Vec<u8>,
+
     pub os: Arc<OSInfo>,
     pub memory: MemoryInfo,
     pub cpu: CPUInfo,
     pub architecture: String,
     pub hostname: String,
+}
+
+impl SystemInfo {
+    pub fn new(
+        os: Arc<OSInfo>,
+        memory: MemoryInfo,
+        cpu: CPUInfo,
+        architecture: String,
+        hostname: String,
+    ) -> Self {
+        let mut this = Self {
+            _pre_serialize: vec![],
+            os,
+            memory,
+            cpu,
+            architecture,
+            hostname,
+        };
+
+        this._pre_serialize = serde_json::to_vec(&this).unwrap_or_default();
+        this
+    }
+
+    pub fn serialize_to_vec(&self) -> &[u8] {
+        &self._pre_serialize
+    }
 }

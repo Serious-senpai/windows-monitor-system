@@ -70,11 +70,11 @@ impl BlockingSystemInfo {
 
         Some((
             cpu_ckpt,
-            Arc::new(SystemInfo {
-                os: os_info.clone(),
+            Arc::new(SystemInfo::new(
+                os_info.clone(),
                 memory,
                 cpu,
-                architecture: if cfg!(target_arch = "x86_64") {
+                if cfg!(target_arch = "x86_64") {
                     "x86_64"
                 } else if cfg!(target_arch = "x86") {
                     "x86"
@@ -82,8 +82,8 @@ impl BlockingSystemInfo {
                     "unknown"
                 }
                 .to_string(),
-                hostname: get_computer_name().unwrap_or_else(|_| "unknown".to_string()),
-            }),
+                get_computer_name().unwrap_or_else(|_| "unknown".to_string()),
+            )),
         ))
     }
 

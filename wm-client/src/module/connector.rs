@@ -252,7 +252,7 @@ impl Module for Connector {
             let ptr = self.clone();
             match received {
                 Ok(Some(event)) => {
-                    if let Err(e) = serde_json::to_writer(&mut *payload, &event) {
+                    if let Err(e) = event.serialize_to_writer(&mut *payload) {
                         error!("Failed to serialize {event:?}: {e}");
                         payload.clear();
                         payload.push(b'[');

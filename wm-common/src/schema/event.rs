@@ -1,3 +1,4 @@
+use std::io;
 use std::net::IpAddr;
 use std::path::Path;
 use std::sync::Arc;
@@ -101,7 +102,7 @@ impl Event {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize)]
 pub struct CapturedEventRecord {
     pub event: Event,
     pub system: Arc<SystemInfo>,
@@ -109,6 +110,37 @@ pub struct CapturedEventRecord {
 }
 
 impl CapturedEventRecord {
+    pub fn serialize_to_string(&self) -> String {
+        unsafe {
+            // JSON is always valid UTF-8, right?
+            String::from_utf8_unchecked(self.serialize_to_vec())
+        }
+    }
+
+    pub fn serialize_to_vec(&self) -> Vec<u8> {
+        let mut vec = Vec::with_capacity(512); // According to serialization tests, 512 bytes is enough for most cases (usually they are 300-400 bytes)
+        self.serialize_to_writer(&mut vec)
+            .expect("Failed to serialize event record to buffer");
+        vec
+    }
+
+    pub fn serialize_to_writer<W>(&self, writer: &mut W) -> io::Result<()>
+    where
+        W: io::Write,
+    {
+        writer.write_all(b"{\"event\":")?;
+        serde_json::to_writer(&mut *writer, &self.event)?;
+        writer.write_all(b",\"system\":")?;
+
+        writer.write_all(self.system.serialize_to_vec())?;
+
+        writer.write_all(b",\"captured\":")?;
+        serde_json::to_writer(&mut *writer, &self.captured)?;
+        writer.write_all(b"}")?;
+
+        Ok(())
+    }
+
     pub fn to_ecs(&self, ip: IpAddr) -> ECS {
         let mut os = ECS_Host_Os::new();
         os.family = Some(vec![self.system.os.platform.clone()]);
@@ -135,7 +167,7 @@ impl CapturedEventRecord {
         event.ingested = Some(Utc::now());
         event.kind = Some(vec!["event".to_string()]);
         event.module = Some(vec!["wm-client".to_string()]);
-        event.original = Some(vec![serde_json::to_string(self).unwrap()]);
+        event.original = Some(vec![self.serialize_to_string()]);
         event.provider = Some(vec!["kernel".to_string()]);
 
         let mut ecs = ECS::new(windows_timestamp(self.event.raw_timestamp));
