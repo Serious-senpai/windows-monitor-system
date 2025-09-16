@@ -171,6 +171,10 @@ impl CapturedEventRecord {
                 let path = Path::new(file_name);
 
                 let mut file = ECS_File::new();
+                file.directory = path.parent().map(|s| vec![s.to_string_lossy().to_string()]);
+                file.extension = path
+                    .extension()
+                    .map(|s| vec![s.to_string_lossy().to_string()]);
                 file.inode = Some(vec![file_object.to_string()]);
                 file.name = path
                     .file_name()
