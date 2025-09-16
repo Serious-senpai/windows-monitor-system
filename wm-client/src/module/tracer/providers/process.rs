@@ -31,7 +31,7 @@ impl ProviderWrapper for ProcessProviderWrapper {
         self: Arc<Self>,
         record: &EventRecord,
         schema_locator: &SchemaLocator,
-    ) -> Result<Event, Box<dyn Error + Send + Sync>> {
+    ) -> Result<Option<Event>, Box<dyn Error + Send + Sync>> {
         match schema_locator.event_schema(record) {
             Ok(schema) => {
                 let parser = Parser::create(record, &schema);
@@ -60,7 +60,7 @@ impl ProviderWrapper for ProcessProviderWrapper {
                     .try_parse::<String>("CommandLine")
                     .map_err(RuntimeError::from)?;
 
-                Ok(Event::new(
+                Ok(Some(Event::new(
                     record,
                     EventData::Process {
                         unique_process_key: *unique_process_key,
@@ -72,7 +72,7 @@ impl ProviderWrapper for ProcessProviderWrapper {
                         image_file_name,
                         command_line,
                     },
-                ))
+                )))
             }
             Err(e) => Err(RuntimeError::new(format!("SchemaError: {e:?}")))?,
         }

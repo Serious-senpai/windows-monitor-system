@@ -3033,6 +3033,7 @@ dependencies = [
  "clap",
  "config-file",
  "ferrisetw",
+ "linked-hash-map",
  "log",
  "mimalloc",
  "parking_lot",

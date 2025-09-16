@@ -38,7 +38,7 @@ impl ProviderWrapper for RegistryProviderWrapper {
         self: Arc<Self>,
         record: &EventRecord,
         schema_locator: &SchemaLocator,
-    ) -> Result<Event, Box<dyn Error + Send + Sync>> {
+    ) -> Result<Option<Event>, Box<dyn Error + Send + Sync>> {
         match schema_locator.event_schema(record) {
             Ok(schema) => {
                 let parser = Parser::create(record, &schema);
@@ -58,7 +58,7 @@ impl ProviderWrapper for RegistryProviderWrapper {
                     .try_parse::<String>("KeyName")
                     .map_err(RuntimeError::from)?;
 
-                Ok(Event::new(
+                Ok(Some(Event::new(
                     record,
                     EventData::Registry {
                         initial_time,
@@ -67,7 +67,7 @@ impl ProviderWrapper for RegistryProviderWrapper {
                         key_handle: *key_handle,
                         key_name: key_name.clone(),
                     },
-                ))
+                )))
             }
             Err(e) => Err(RuntimeError::new(format!("SchemaError: {e:?}")))?,
         }

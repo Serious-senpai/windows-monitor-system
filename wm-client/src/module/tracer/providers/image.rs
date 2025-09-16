@@ -31,7 +31,7 @@ impl ProviderWrapper for ImageProviderWrapper {
         self: Arc<Self>,
         record: &EventRecord,
         schema_locator: &SchemaLocator,
-    ) -> Result<Event, Box<dyn Error + Send + Sync>> {
+    ) -> Result<Option<Event>, Box<dyn Error + Send + Sync>> {
         match schema_locator.event_schema(record) {
             Ok(schema) => {
                 let parser = Parser::create(record, &schema);
@@ -51,7 +51,7 @@ impl ProviderWrapper for ImageProviderWrapper {
                     .try_parse::<String>("FileName")
                     .map_err(RuntimeError::from)?;
 
-                Ok(Event::new(
+                Ok(Some(Event::new(
                     record,
                     EventData::Image {
                         image_base: *image_base,
@@ -60,7 +60,7 @@ impl ProviderWrapper for ImageProviderWrapper {
                         image_checksum,
                         file_name,
                     },
-                ))
+                )))
             }
             Err(e) => Err(RuntimeError::new(format!("SchemaError: {e:?}")))?,
         }

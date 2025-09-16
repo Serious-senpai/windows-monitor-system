@@ -36,7 +36,7 @@ pub trait ProviderWrapper: Send + Sync {
         self: Arc<Self>,
         record: &EventRecord,
         schema_locator: &SchemaLocator,
-    ) -> Result<Event, Box<dyn Error + Send + Sync>>;
+    ) -> Result<Option<Event>, Box<dyn Error + Send + Sync>>;
 
     fn attach(
         self: Arc<Self>,
@@ -57,7 +57,7 @@ pub trait ProviderWrapper: Send + Sync {
                 if ptr.clone().filter(record) {
                     // cargo fmt error here: https://github.com/rust-lang/rustfmt/issues/5689
                     match ptr.clone().callback(record, schema_locator) {
-                        Ok(event) => match enricher.try_lock() {
+                        Ok(Some(event)) => match enricher.try_lock() {
                             Some(mut enricher) => {
                                 let data = Arc::new(CapturedEventRecord {
                                     event,
@@ -83,6 +83,7 @@ pub trait ProviderWrapper: Send + Sync {
                                 );
                             }
                         },
+                        Ok(None) => {}
                         Err(e) => {
                             error!("Error handling event from {:?}: {e}", provider.guid);
                         }

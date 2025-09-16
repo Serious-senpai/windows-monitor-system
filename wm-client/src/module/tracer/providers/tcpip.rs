@@ -32,7 +32,7 @@ impl ProviderWrapper for TcpIpProviderWrapper {
         self: Arc<Self>,
         record: &EventRecord,
         schema_locator: &SchemaLocator,
-    ) -> Result<Event, Box<dyn Error + Send + Sync>> {
+    ) -> Result<Option<Event>, Box<dyn Error + Send + Sync>> {
         match schema_locator.event_schema(record) {
             Ok(schema) => {
                 let parser = Parser::create(record, &schema);
@@ -53,7 +53,7 @@ impl ProviderWrapper for TcpIpProviderWrapper {
                     .try_parse::<u16>("sport")
                     .map_err(RuntimeError::from)?;
 
-                Ok(Event::new(
+                Ok(Some(Event::new(
                     record,
                     EventData::TcpIp {
                         pid,
@@ -63,7 +63,7 @@ impl ProviderWrapper for TcpIpProviderWrapper {
                         dport,
                         sport,
                     },
-                ))
+                )))
             }
             Err(e) => Err(RuntimeError::new(format!("SchemaError: {e:?}")))?,
         }

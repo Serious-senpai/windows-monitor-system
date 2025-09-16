@@ -18,8 +18,11 @@ use crate::utils::{split_command_line, windows_timestamp};
 #[serde(tag = "type", content = "data")]
 pub enum EventData {
     File {
+        irp_ptr: usize,
+        ttid: usize,
         file_object: usize,
         file_name: String,
+        file_attributes: u32,
     },
     Image {
         image_base: usize,
@@ -147,6 +150,7 @@ impl CapturedEventRecord {
             EventData::File {
                 file_object,
                 file_name,
+                ..
             } => {
                 event.action = Some(vec![
                     match self.event.opcode {
@@ -171,6 +175,10 @@ impl CapturedEventRecord {
                 let path = Path::new(file_name);
 
                 let mut file = ECS_File::new();
+                file.directory = path.parent().map(|s| vec![s.to_string_lossy().to_string()]);
+                file.extension = path
+                    .extension()
+                    .map(|s| vec![s.to_string_lossy().to_string()]);
                 file.inode = Some(vec![file_object.to_string()]);
                 file.name = path
                     .file_name()
