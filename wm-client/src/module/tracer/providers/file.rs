@@ -112,25 +112,6 @@ impl ProviderWrapper for FileProviderWrapper {
                     0
                 };
 
-                // Debug stuff
-                if record.opcode() == 64 {
-                    warn!(
-                        "FileIo_Create: opcode={} IRP={irp_ptr:?} TTID={ttid:?} file_name={file_name:?}",
-                        record.opcode()
-                    );
-                } else {
-                    let extra_info = parser
-                        .try_parse::<Pointer>("ExtraInfo")
-                        .map_err(RuntimeError::from)?;
-                    let info_class = parser
-                        .try_parse::<u32>("InfoClass")
-                        .map_err(RuntimeError::from)?;
-                    warn!(
-                        "FileIo_Info: opcode={} IRP={irp_ptr:?} TTID={ttid:?} file_name={file_name:?} extra_info={extra_info:?}, info_class={info_class:?}",
-                        record.opcode()
-                    );
-                }
-
                 Ok(Some(Event::new(
                     record,
                     EventData::File {
