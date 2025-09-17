@@ -12,13 +12,6 @@ use crate::module::tracer::providers::ProviderWrapper;
 pub struct RegistryProviderWrapper;
 
 impl ProviderWrapper for RegistryProviderWrapper {
-    fn new() -> Self
-    where
-        Self: Sized,
-    {
-        Self {}
-    }
-
     fn provider(self: Arc<Self>) -> &'static KernelProvider {
         &REGISTRY_PROVIDER
     }

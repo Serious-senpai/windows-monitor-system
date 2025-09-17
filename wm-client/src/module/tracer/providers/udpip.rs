@@ -24,13 +24,6 @@ const _PROVIDER: KernelProvider = KernelProvider::new(
 pub struct UdpIpProviderWrapper;
 
 impl ProviderWrapper for UdpIpProviderWrapper {
-    fn new() -> Self
-    where
-        Self: Sized,
-    {
-        Self {}
-    }
-
     fn provider(self: Arc<Self>) -> &'static KernelProvider {
         &_PROVIDER
     }

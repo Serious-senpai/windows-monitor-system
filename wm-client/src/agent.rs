@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use log::{error, info};
 use tokio::sync::{Mutex, mpsc};
-use wm_common::credential::CredentialManager;
 
 use crate::backup::Backup;
 use crate::configuration::Configuration;
@@ -13,13 +12,14 @@ use crate::module::tracer::EventTracer;
 
 pub struct Agent {
     _config: Arc<Configuration>,
+    _mock: Option<u32>,
     _modules: Vec<Arc<dyn Module>>,
     _http: Arc<HttpClient>,
     _backup: Arc<Mutex<Backup>>,
 }
 
 impl Agent {
-    pub async fn async_new(config: Arc<Configuration>, password: &str) -> Self {
+    pub async fn async_new(config: Arc<Configuration>, password: &str, mock: Option<u32>) -> Self {
         let backup = Arc::new(Mutex::new(Backup::async_new(config.clone()).await));
 
         let http = Arc::new(HttpClient::new(&config, password));
@@ -27,8 +27,11 @@ impl Agent {
 
         Self {
             _config: config.clone(),
+            _mock: mock,
             _modules: vec![
-                Arc::new(EventTracer::async_new(config.clone(), sender, backup.clone()).await),
+                Arc::new(
+                    EventTracer::async_new(config.clone(), sender, backup.clone(), mock).await,
+                ),
                 Arc::new(
                     Connector::async_new(config.clone(), receiver, backup.clone(), http.clone())
                         .await,
@@ -37,16 +40,6 @@ impl Agent {
             _http: http,
             _backup: backup,
         }
-    }
-
-    pub fn read_password(config: &Configuration) -> String {
-        let data = CredentialManager::read(&format!("{}\0", config.windows_credential_manager_key))
-            .unwrap_or_else(|_| {
-                panic!(
-                    "Failed to read password from Windows Credential Manager. Have you set it yet?"
-                )
-            });
-        String::from_utf8_lossy(&data).to_string()
     }
 
     pub async fn run(&self) {

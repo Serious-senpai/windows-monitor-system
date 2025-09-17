@@ -20,15 +20,24 @@ const _PROVIDER: KernelProvider = KernelProvider::new(
     EVENT_TRACE_FLAG_DISK_FILE_IO.0,
 );
 
-pub struct FileProviderWrapper;
+pub struct MockProviderWrapper {
+    _pid: u32,
+}
 
-impl ProviderWrapper for FileProviderWrapper {
+impl MockProviderWrapper {
+    pub fn with_pid(pid: u32) -> Self {
+        Self { _pid: pid }
+    }
+}
+
+impl ProviderWrapper for MockProviderWrapper {
     fn provider(self: Arc<Self>) -> &'static KernelProvider {
         &_PROVIDER
     }
 
     fn filter(self: Arc<Self>, record: &EventRecord) -> bool {
-        record.opcode() == 0 || record.opcode() == 32 || record.opcode() == 35
+        record.process_id() == self._pid
+            && (record.opcode() == 0 || record.opcode() == 32 || record.opcode() == 35)
     }
 
     fn callback(

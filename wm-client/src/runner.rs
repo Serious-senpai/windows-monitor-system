@@ -6,18 +6,20 @@ use tokio::sync::SetOnce;
 use tokio::task::JoinHandle;
 use tokio::{signal, task};
 use windows_services::{Command, Service};
+use wm_common::credential::CredentialManager;
 
 use crate::agent::Agent;
 use crate::configuration::Configuration;
 
 pub struct AgentRunner {
+    _mock: Option<u32>,
     _configuration: Arc<Configuration>,
     _service_handle: Option<JoinHandle<Result<(), &'static str>>>,
     _service_stopped: Arc<SetOnce<()>>,
 }
 
 impl AgentRunner {
-    pub fn new<const SERVICE: bool>(configuration: Arc<Configuration>) -> Self {
+    pub fn new<const SERVICE: bool>(configuration: Arc<Configuration>, mock: Option<u32>) -> Self {
         let stopped = Arc::new(SetOnce::new());
         let stopped_clone = stopped.clone();
 
@@ -42,6 +44,7 @@ impl AgentRunner {
         };
 
         Self {
+            _mock: mock,
             _configuration: configuration,
             _service_handle: handle,
             _service_stopped: stopped,
@@ -49,8 +52,9 @@ impl AgentRunner {
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let password = Agent::read_password(&self._configuration);
-        let agent = Arc::new(Agent::async_new(self._configuration.clone(), &password).await);
+        let password = self._read_password();
+        let agent =
+            Arc::new(Agent::async_new(self._configuration.clone(), &password, self._mock).await);
 
         let agent_cloned = agent.clone();
         let mut agent_handle = tokio::spawn(async move {
@@ -78,5 +82,16 @@ impl AgentRunner {
         }
 
         Ok(())
+    }
+
+    fn _read_password(&self) -> String {
+        let data = CredentialManager::read(&format!(
+            "{}\0",
+            self._configuration.windows_credential_manager_key
+        ))
+        .unwrap_or_else(|_| {
+            panic!("Failed to read password from Windows Credential Manager. Have you set it yet?")
+        });
+        String::from_utf8_lossy(&data).to_string()
     }
 }
