@@ -37,11 +37,16 @@ pub enum ServiceAction {
         dest: PathBuf,
     },
 
+    /// Start a process which creates and removes a large number of files to generate
+    /// high event load.
     MockProvider {
+        /// Number of files to create and remove
         count: usize,
     },
 
+    /// Start a mock agent which only handles events from the mock provider.
     MockConsumer {
+        /// Process ID of the mock provider to filter
         pid: u32,
     },
 }
