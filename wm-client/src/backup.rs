@@ -70,18 +70,24 @@ impl Backup {
     pub async fn write_one(&mut self, data: &CapturedEventRecord) {
         self._zstd.write_u8(b'[').await.unwrap();
         self._zstd
-            .write_all(&serde_json::to_vec(data).unwrap())
+            .write_all(&data.serialize_to_vec())
             .await
             .unwrap();
         self._zstd.write_all(b"]\n").await.unwrap();
     }
 
     pub async fn write_many(&mut self, data: &[CapturedEventRecord]) {
-        self._zstd
-            .write_all(&serde_json::to_vec(data).unwrap())
-            .await
-            .unwrap();
-        self._zstd.write_u8(b'\n').await.unwrap();
+        self._zstd.write_u8(b'[').await.unwrap();
+        for (i, record) in data.iter().enumerate() {
+            if i > 0 {
+                self._zstd.write_u8(b',').await.unwrap();
+            }
+            self._zstd
+                .write_all(&record.serialize_to_vec())
+                .await
+                .unwrap();
+        }
+        self._zstd.write_all(b"]\n").await.unwrap();
     }
 
     pub async fn write(&mut self, data: &[u8]) {
@@ -101,7 +107,7 @@ impl Backup {
 
         let mut entries = fs::read_dir(&backup_directory).await?;
         while let Ok(Some(entry)) = entries.next_entry().await {
-            if entry.path().extension().map(|s| s != "zst").unwrap_or(true)
+            if entry.path().extension().is_none_or(|s| s != "zst")
                 || entry.path() == backup.lock().await._path
             {
                 continue;
