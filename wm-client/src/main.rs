@@ -1,15 +1,14 @@
+use std::env;
 use std::error::Error;
 use std::fs::File as BlockingFile;
-use std::io::{Write, stdin, stdout};
+use std::io::{Write, stdout};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use std::{env, process};
 
 use async_compression::tokio::write::ZstdDecoder;
 use clap::Parser;
 use config_file::FromConfigFile;
-use log::{debug, error, info};
-use tokio::fs::File;
+use log::{debug, info};
 use tokio::{fs, io, task};
 use windows::Win32::System::Services::SC_MANAGER_ALL_ACCESS;
 use wm_client::cli::{Arguments, ServiceAction};
@@ -83,12 +82,12 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 }
 
                 info!("Starting service {}", configuration.service_name);
-                let mut runner = AgentRunner::new::<true>(configuration.clone(), None);
+                let mut runner = AgentRunner::new::<true>(configuration.clone());
                 runner.run().await?;
             } else {
                 info!("Running as a standalone process");
 
-                let mut runner = AgentRunner::new::<false>(configuration.clone(), None);
+                let mut runner = AgentRunner::new::<false>(configuration.clone());
                 runner.run().await?;
             }
         }
@@ -130,39 +129,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 source.display(),
                 dest.display()
             );
-        }
-        ServiceAction::MockProvider { count } => {
-            info!(
-                "Current PID is {}. Press Enter to spam {count} file(s).",
-                process::id()
-            );
-
-            let mut buf = String::new();
-            let _ = stdin().read_line(&mut buf);
-
-            let mut tasks = vec![];
-            for index in 0..count {
-                let path = app_directory.join(format!("mock-{index}.tmp"));
-                tasks.push(tokio::spawn(async move {
-                    let file = File::create(&path)
-                        .await
-                        .unwrap_or_else(|_| panic!("Failed to create {}", path.display()));
-                    drop(file);
-                    fs::remove_file(&path)
-                        .await
-                        .unwrap_or_else(|_| panic!("Failed to remove {}", path.display()));
-                }));
-            }
-
-            for task in tasks {
-                if let Err(e) = task.await {
-                    error!("Task failed with error: {e}");
-                }
-            }
-        }
-        ServiceAction::MockConsumer { pid } => {
-            let mut runner = AgentRunner::new::<false>(configuration.clone(), Some(pid));
-            runner.run().await?;
         }
     };
 

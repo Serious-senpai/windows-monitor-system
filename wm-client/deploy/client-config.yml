@@ -12,5 +12,5 @@ dns_resolver:
   localhost: 127.0.0.1
 
 event_post:
-  concurrency_limit: 5
+  concurrency_limit: 3
   flush_limit: 102400

@@ -28,7 +28,6 @@ use crate::module::tracer::providers::udpip::UdpIpProviderWrapper;
 
 pub struct EventTracer {
     _configuration: Arc<Configuration>,
-    _mock: Option<u32>,
     _sender: mpsc::Sender<Arc<CapturedEventRecord>>,
     _trace: RwLock<Option<KernelTrace>>,
     _running: Mutex<bool>,
@@ -41,14 +40,12 @@ impl EventTracer {
         configuration: Arc<Configuration>,
         sender: mpsc::Sender<Arc<CapturedEventRecord>>,
         backup: Arc<Mutex<Backup>>,
-        mock: Option<u32>,
     ) -> Self
     where
         Self: Sized,
     {
         Self {
             _configuration: configuration.clone(),
-            _mock: mock,
             _sender: sender,
             _trace: RwLock::new(None),
             _running: Mutex::new(false),
@@ -64,21 +61,15 @@ impl EventTracer {
 
     fn _trace_builder(self: &Arc<Self>) -> TraceBuilder<KernelTrace> {
         let mut tracer = KernelTrace::new().named(self._configuration.trace_name.clone());
-        let wrappers: Vec<Arc<dyn ProviderWrapper>> = if let Some(pid) = self._mock {
-            vec![Arc::new(providers::mock::MockProviderWrapper::with_pid(
-                pid,
-            ))]
-        } else {
-            vec![
-                Arc::new(FileProviderWrapper {}),
-                Arc::new(ImageProviderWrapper {}),
-                Arc::new(ProcessProviderWrapper {}),
-                Arc::new(RegistryProviderWrapper {}),
-                Arc::new(TcpIpProviderWrapper {}),
-                Arc::new(UdpIpProviderWrapper {}),
-                // Add other providers here as needed
-            ]
-        };
+        let wrappers: Vec<Arc<dyn ProviderWrapper>> = vec![
+            Arc::new(FileProviderWrapper {}),
+            Arc::new(ImageProviderWrapper {}),
+            Arc::new(ProcessProviderWrapper {}),
+            Arc::new(RegistryProviderWrapper {}),
+            Arc::new(TcpIpProviderWrapper {}),
+            Arc::new(UdpIpProviderWrapper {}),
+            // Add other providers here as needed
+        ];
         for wrapper in wrappers {
             tracer = wrapper.attach(
                 tracer,

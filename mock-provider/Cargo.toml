@@ -1,0 +1,15 @@
+[package]
+name = "mock-provider"
+version = "0.1.0"
+authors = ["Serious-senpai"]
+edition = "2024"
+description = "Windows Monitor stress test mock data provider"
+repository = "https://github.com/Serious-senpai/windows-monitor"
+license = "GPL-2.0-or-later"
+
+[dependencies]
+clap = { workspace = true }
+tokio = { workspace = true }
+
+[lints]
+workspace = true

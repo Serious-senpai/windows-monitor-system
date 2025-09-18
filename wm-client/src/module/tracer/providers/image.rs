@@ -28,18 +28,18 @@ impl ProviderWrapper for ImageProviderWrapper {
         match schema_locator.event_schema(record) {
             Ok(schema) => {
                 let parser = Parser::create(record, &schema);
-                let image_base = parser
-                    .try_parse::<Pointer>("ImageBase")
-                    .map_err(RuntimeError::from)?;
-                let image_size = parser
-                    .try_parse::<Pointer>("ImageSize")
-                    .map_err(RuntimeError::from)?;
-                let process_id = parser
-                    .try_parse::<u32>("ProcessId")
-                    .map_err(RuntimeError::from)?;
-                let image_checksum = parser
-                    .try_parse::<u32>("ImageChecksum")
-                    .map_err(RuntimeError::from)?;
+                // let image_base = parser
+                //     .try_parse::<Pointer>("ImageBase")
+                //     .map_err(RuntimeError::from)?;
+                // let image_size = parser
+                //     .try_parse::<Pointer>("ImageSize")
+                //     .map_err(RuntimeError::from)?;
+                // let process_id = parser
+                //     .try_parse::<u32>("ProcessId")
+                //     .map_err(RuntimeError::from)?;
+                // let image_checksum = parser
+                //     .try_parse::<u32>("ImageChecksum")
+                //     .map_err(RuntimeError::from)?;
                 let file_name = parser
                     .try_parse::<String>("FileName")
                     .map_err(RuntimeError::from)?;
@@ -47,10 +47,10 @@ impl ProviderWrapper for ImageProviderWrapper {
                 Ok(Event::new(
                     record,
                     EventData::Image {
-                        image_base: *image_base,
-                        image_size: *image_size,
-                        process_id,
-                        image_checksum,
+                        // image_base: *image_base,
+                        // image_size: *image_size,
+                        // process_id,
+                        // image_checksum,
                         file_name,
                     },
                 ))

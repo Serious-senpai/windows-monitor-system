@@ -35,18 +35,18 @@ impl ProviderWrapper for RegistryProviderWrapper {
         match schema_locator.event_schema(record) {
             Ok(schema) => {
                 let parser = Parser::create(record, &schema);
-                let initial_time = parser
-                    .try_parse::<i64>("InitialTime")
-                    .map_err(RuntimeError::from)?;
-                let status = parser
-                    .try_parse::<Pointer>("Status")
-                    .map_err(RuntimeError::from)?;
-                let index = parser
-                    .try_parse::<u32>("Index")
-                    .map_err(RuntimeError::from)?;
-                let key_handle = parser
-                    .try_parse::<Pointer>("KeyHandle")
-                    .map_err(RuntimeError::from)?;
+                // let initial_time = parser
+                //     .try_parse::<i64>("InitialTime")
+                //     .map_err(RuntimeError::from)?;
+                // let status = parser
+                //     .try_parse::<Pointer>("Status")
+                //     .map_err(RuntimeError::from)?;
+                // let index = parser
+                //     .try_parse::<u32>("Index")
+                //     .map_err(RuntimeError::from)?;
+                // let key_handle = parser
+                //     .try_parse::<Pointer>("KeyHandle")
+                //     .map_err(RuntimeError::from)?;
                 let key_name = parser
                     .try_parse::<String>("KeyName")
                     .map_err(RuntimeError::from)?;
@@ -54,11 +54,11 @@ impl ProviderWrapper for RegistryProviderWrapper {
                 Ok(Event::new(
                     record,
                     EventData::Registry {
-                        initial_time,
-                        status: *status,
-                        index,
-                        key_handle: *key_handle,
-                        key_name: key_name.clone(),
+                        // initial_time,
+                        // status: *status,
+                        // index,
+                        // key_handle: *key_handle,
+                        key_name: key_name,
                     },
                 ))
             }

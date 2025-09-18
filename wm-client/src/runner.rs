@@ -12,14 +12,13 @@ use crate::agent::Agent;
 use crate::configuration::Configuration;
 
 pub struct AgentRunner {
-    _mock: Option<u32>,
     _configuration: Arc<Configuration>,
     _service_handle: Option<JoinHandle<Result<(), &'static str>>>,
     _service_stopped: Arc<SetOnce<()>>,
 }
 
 impl AgentRunner {
-    pub fn new<const SERVICE: bool>(configuration: Arc<Configuration>, mock: Option<u32>) -> Self {
+    pub fn new<const SERVICE: bool>(configuration: Arc<Configuration>) -> Self {
         let stopped = Arc::new(SetOnce::new());
         let stopped_clone = stopped.clone();
 
@@ -44,7 +43,6 @@ impl AgentRunner {
         };
 
         Self {
-            _mock: mock,
             _configuration: configuration,
             _service_handle: handle,
             _service_stopped: stopped,
@@ -53,8 +51,7 @@ impl AgentRunner {
 
     pub async fn run(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
         let password = self._read_password();
-        let agent =
-            Arc::new(Agent::async_new(self._configuration.clone(), &password, self._mock).await);
+        let agent = Arc::new(Agent::async_new(self._configuration.clone(), &password).await);
 
         let agent_cloned = agent.clone();
         let mut agent_handle = tokio::spawn(async move {
