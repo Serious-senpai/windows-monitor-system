@@ -1,11 +1,15 @@
 use std::env;
 use std::error::Error;
 use std::fs::File;
+use std::net::Ipv4Addr;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use clap::Parser;
 use config_file::FromConfigFile;
+use heed::byteorder::LittleEndian;
+use heed::types::{U32, Unit};
+use heed::{Database, EnvOpenOptions};
 use log::{debug, error, info};
 use reqwest::multipart::{Form, Part};
 use tokio::fs;
@@ -83,6 +87,51 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                     error!("Unable to send request to Kibana: {e}");
                 }
             }
+        }
+        ServerAction::FetchBlacklist { dest } => {
+            if dest.exists() {
+                error!("{} already exists, please remove it first", dest.display());
+                return Ok(());
+            }
+
+            fs::create_dir_all(&dest).await?;
+            let env = unsafe {
+                EnvOpenOptions::new()
+                    .map_size(10 << 20)
+                    .open(&dest)
+                    .unwrap()
+            };
+
+            let mut transaction = env.write_txn().unwrap();
+            let db: Database<U32<LittleEndian>, Unit> =
+                env.create_database(&mut transaction, None).unwrap();
+
+            let client = reqwest::Client::new();
+            let response = client
+                .get("https://raw.githubusercontent.com/stamparm/ipsum/master/ipsum.txt")
+                .send()
+                .await
+                .unwrap();
+
+            let mut count = 0;
+            for line in response.text().await.unwrap().lines() {
+                if !line.starts_with('#') {
+                    let ip = line
+                        .split_ascii_whitespace()
+                        .next()
+                        .unwrap()
+                        .parse::<Ipv4Addr>()
+                        .unwrap();
+                    let ip_u32 = ip.to_bits().to_le();
+                    db.put(&mut transaction, &ip_u32, &())
+                        .expect(&format!("Failed to insert IP {ip} (inserted {count})"));
+
+                    count += 1;
+                }
+            }
+
+            info!("Inserted {count} IPs into the blacklist database");
+            transaction.commit()?;
         }
     }
 

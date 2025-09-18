@@ -16,6 +16,7 @@ config-file = { workspace = true }
 elasticsearch = "^9.0.0-alpha.1"
 futures-util = "^0.3.31"
 http-body-util = "^0.1.3"
+heed = { workspace = true }
 hyper = { version = "^1.6.0", features = ["full"] }
 hyper-util = { version = "^0.1.16", features = ["full"] }
 log = { workspace = true }
