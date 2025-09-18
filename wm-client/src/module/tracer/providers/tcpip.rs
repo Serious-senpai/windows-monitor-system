@@ -29,7 +29,7 @@ impl ProviderWrapper for TcpIpProviderWrapper {
         match schema_locator.event_schema(record) {
             Ok(schema) => {
                 let parser = Parser::create(record, &schema);
-                // let pid = parser.try_parse::<u32>("PID").map_err(RuntimeError::from)?;
+                let pid = parser.try_parse::<u32>("PID").map_err(RuntimeError::from)?;
                 let size = parser
                     .try_parse::<u32>("size")
                     .map_err(RuntimeError::from)?;
@@ -49,7 +49,7 @@ impl ProviderWrapper for TcpIpProviderWrapper {
                 Ok(Event::new(
                     record,
                     EventData::TcpIp {
-                        // pid,
+                        pid,
                         size,
                         daddr,
                         saddr,
