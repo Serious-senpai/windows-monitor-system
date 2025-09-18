@@ -5,6 +5,7 @@ server: https://localhost:12110
 zstd_compression_level: 3
 system_refresh_interval_seconds: 3.0
 backup_directory: target\backup
+blacklist_lmdb: target\blacklist.lmdb
 
 log_level: Info
 message_queue_limit: 1000

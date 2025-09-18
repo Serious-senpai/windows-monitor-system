@@ -21,6 +21,7 @@ pub struct Configuration {
     pub zstd_compression_level: i32,
     pub system_refresh_interval_seconds: f64,
     pub backup_directory: PathBuf,
+    pub blacklist_lmdb: PathBuf,
     pub log_level: LogLevel,
     pub message_queue_limit: usize,
     pub dns_resolver: HashMap<String, IpAddr>,

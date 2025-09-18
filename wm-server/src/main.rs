@@ -7,9 +7,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use clap::Parser;
 use config_file::FromConfigFile;
+use heed::EnvOpenOptions;
 use heed::byteorder::LittleEndian;
 use heed::types::{U32, Unit};
-use heed::{Database, EnvOpenOptions};
 use log::{debug, error, info};
 use reqwest::multipart::{Form, Part};
 use tokio::fs;
@@ -103,8 +103,9 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             };
 
             let mut transaction = env.write_txn().unwrap();
-            let db: Database<U32<LittleEndian>, Unit> =
-                env.create_database(&mut transaction, None).unwrap();
+            let db = env
+                .create_database::<U32<LittleEndian>, Unit>(&mut transaction, None)
+                .unwrap();
 
             let client = reqwest::Client::new();
             let response = client
