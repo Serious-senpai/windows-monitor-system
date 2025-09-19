@@ -7,12 +7,17 @@ use crate::backup::Backup;
 use crate::configuration::Configuration;
 use crate::http::HttpClient;
 use crate::module::Module;
+use crate::module::backup::BackupSender;
 use crate::module::connector::Connector;
 use crate::module::tracer::EventTracer;
 
 pub struct Agent {
+    // Module list
+    _tracer: Arc<EventTracer>,
+    _backup_sender: Arc<BackupSender>,
+    _connector: Arc<Connector>,
+
     _config: Arc<Configuration>,
-    _modules: Vec<Arc<dyn Module>>,
     _http: Arc<HttpClient>,
     _backup: Arc<Mutex<Backup>>,
 }
@@ -25,14 +30,10 @@ impl Agent {
         let (sender, receiver) = mpsc::channel(config.message_queue_limit);
 
         Self {
+            _tracer: Arc::new(EventTracer::async_new(config.clone(), sender, backup.clone()).await),
+            _backup_sender: Arc::new(BackupSender::new(backup.clone(), http.clone())),
+            _connector: Connector::new(config.clone(), receiver, backup.clone(), http.clone()),
             _config: config.clone(),
-            _modules: vec![
-                Arc::new(EventTracer::async_new(config.clone(), sender, backup.clone()).await),
-                Arc::new(
-                    Connector::async_new(config.clone(), receiver, backup.clone(), http.clone())
-                        .await,
-                ),
-            ],
             _http: http,
             _backup: backup,
         }
@@ -45,17 +46,9 @@ impl Agent {
         );
 
         let mut tasks = vec![];
-        for module in &self._modules {
-            let ptr = module.clone();
-
-            let task = tokio::spawn(async move {
-                if let Err(e) = ptr.clone().run().await {
-                    error!("Module {} completed with error: {e}", ptr.name());
-                }
-            });
-
-            tasks.push(task);
-        }
+        tasks.push(tokio::spawn(self._tracer.clone().run()));
+        tasks.push(tokio::spawn(self._backup_sender.clone().run()));
+        tasks.push(tokio::spawn(self._connector.clone().run()));
 
         for task in tasks {
             if let Err(e) = task.await {
@@ -67,12 +60,9 @@ impl Agent {
     }
 
     pub async fn stop(&self) {
-        for module in &self._modules {
-            if let Err(e) = module.clone().stop().await {
-                error!("Module {} stopped with error: {e}", module.name());
-            }
-        }
-
+        self._tracer.stop();
+        self._backup_sender.stop();
+        self._connector.stop();
         self._backup.lock().await.flush().await;
     }
 }

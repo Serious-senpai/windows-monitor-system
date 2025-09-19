@@ -58,7 +58,7 @@ impl ProviderWrapper for RegistryProviderWrapper {
                         status: *status,
                         index,
                         key_handle: *key_handle,
-                        key_name: key_name,
+                        key_name,
                     },
                 ))
             }

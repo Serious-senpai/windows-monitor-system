@@ -6,10 +6,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use ferrisetw::trace::{KernelTrace, TraceBuilder, TraceTrait, stop_trace_by_name};
-use log::{debug, error};
+use ferrisetw::trace::{KernelTrace, TraceBuilder, TraceError, TraceTrait, stop_trace_by_name};
 use parking_lot::Mutex as BlockingMutex;
-use tokio::sync::{Mutex, RwLock, mpsc};
+use tokio::sync::{Mutex, SetOnce, mpsc};
 use tokio::task;
 use wm_common::error::RuntimeError;
 use wm_common::schema::event::CapturedEventRecord;
@@ -27,17 +26,18 @@ use crate::module::tracer::providers::tcpip::TcpIpProviderWrapper;
 use crate::module::tracer::providers::udpip::UdpIpProviderWrapper;
 
 pub struct EventTracer {
-    _configuration: Arc<Configuration>,
+    _config: Arc<Configuration>,
     _sender: mpsc::Sender<Arc<CapturedEventRecord>>,
-    _trace: RwLock<Option<KernelTrace>>,
-    _running: Mutex<bool>,
+    _trace: Mutex<Option<KernelTrace>>,
+    _trace_task: Mutex<Option<task::JoinHandle<Result<(), TraceError>>>>,
+    _stopped: Arc<SetOnce<()>>,
     _backup: Arc<Mutex<Backup>>,
     _enricher: Arc<BlockingMutex<BlockingEventEnricher>>,
 }
 
 impl EventTracer {
     pub async fn async_new(
-        configuration: Arc<Configuration>,
+        config: Arc<Configuration>,
         sender: mpsc::Sender<Arc<CapturedEventRecord>>,
         backup: Arc<Mutex<Backup>>,
     ) -> Self
@@ -45,14 +45,15 @@ impl EventTracer {
         Self: Sized,
     {
         Self {
-            _configuration: configuration.clone(),
+            _config: config.clone(),
             _sender: sender,
-            _trace: RwLock::new(None),
-            _running: Mutex::new(false),
+            _trace: Mutex::new(None),
+            _trace_task: Mutex::new(None),
+            _stopped: Arc::new(SetOnce::new()),
             _backup: backup,
             _enricher: Arc::new(BlockingMutex::new(
                 BlockingEventEnricher::async_new(Duration::from_secs_f64(
-                    configuration.system_refresh_interval_seconds,
+                    config.system_refresh_interval_seconds,
                 ))
                 .await,
             )),
@@ -60,7 +61,7 @@ impl EventTracer {
     }
 
     fn _trace_builder(self: &Arc<Self>) -> TraceBuilder<KernelTrace> {
-        let mut tracer = KernelTrace::new().named(self._configuration.trace_name.clone());
+        let mut tracer = KernelTrace::new().named(self._config.trace_name.clone());
         let wrappers: Vec<Arc<dyn ProviderWrapper>> = vec![
             Arc::new(FileProviderWrapper {}),
             Arc::new(ImageProviderWrapper {}),
@@ -83,77 +84,65 @@ impl EventTracer {
     }
 
     async fn _set_trace(&self, trace: KernelTrace) {
-        let mut self_trace = self._trace.write().await;
-        *self_trace = Some(trace);
+        *self._trace.lock().await = Some(trace);
     }
 }
 
 #[async_trait]
 impl Module for EventTracer {
+    type EventType = ();
+
     fn name(&self) -> &str {
         "EventTracer"
     }
 
-    async fn run(self: Arc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
-        {
-            let mut running = self._running.lock().await;
-            if *running {
-                return Err(RuntimeError::new("EventTracer is already running").into());
-            }
-
-            *running = true;
-        }
-
-        debug!("Running EventTracer");
-
-        let _ = stop_trace_by_name(&self._configuration.trace_name);
-        let (trace, handle) = self
-            ._trace_builder()
-            .start()
-            .map_err(|e| RuntimeError::new(format!("Unable to start kernel trace: {e:?}")))?;
-
-        self._set_trace(trace).await;
-
-        // Process trace in a blocking thread; this call will block until the trace stops.
-        task::spawn_blocking(move || KernelTrace::process_from_handle(handle))
-            .await?
-            .map_err(|e| RuntimeError::new(format!("Kernel trace error: {e:?}")))?;
-
-        debug!("EventTracer completed");
-
-        Ok(())
+    fn stopped(&self) -> Arc<SetOnce<()>> {
+        self._stopped.clone()
     }
 
-    async fn stop(self: Arc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let mut running = self._running.lock().await;
-        if !*running {
-            return Err(RuntimeError::new("EventTracer is not running").into());
-        }
+    async fn listen(self: Arc<Self>) -> Self::EventType {
+        self._stopped.wait().await;
+    }
 
-        debug!("Stopping EventTracer");
-
-        let mut self_trace = self._trace.write().await;
+    async fn handle(
+        self: Arc<Self>,
+        _: Self::EventType,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let mut self_trace = self._trace.lock().await;
         if let Some(trace) = self_trace.take() {
             trace
                 .stop()
                 .map_err(|e| RuntimeError::new(format!("Error stopping EventTracer: {e:?}")))?;
         }
 
-        *running = false;
-        debug!("EventTracer stopped");
+        Ok(())
+    }
+
+    async fn before_hook(self: Arc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let _ = stop_trace_by_name(&self._config.trace_name);
+        let (trace, handle) = self
+            ._trace_builder()
+            .start()
+            .map_err(|e| RuntimeError::new(format!("Unable to start kernel trace: {e:?}")))?;
+
+        self._set_trace(trace).await;
+        self._trace_task
+            .lock()
+            .await
+            .replace(task::spawn_blocking(move || {
+                KernelTrace::process_from_handle(handle)
+            }));
 
         Ok(())
     }
-}
 
-impl Drop for EventTracer {
-    fn drop(&mut self) {
-        if let Some(trace) = self._trace.get_mut().take()
-            && let Err(e) = trace.stop()
-        {
-            error!("Error stopping EventTracer: {e:?}");
+    async fn after_hook(self: Arc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let mut trace_task = self._trace_task.lock().await;
+        if let Some(handle) = trace_task.take() {
+            handle
+                .await?
+                .map_err(|e| RuntimeError::new(format!("Kernel trace error: {e:?}")))?;
         }
-
-        *self._running.get_mut() = false;
+        Ok(())
     }
 }

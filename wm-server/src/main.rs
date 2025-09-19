@@ -125,7 +125,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                         .unwrap();
                     let ip_u32 = ip.to_bits().to_le();
                     db.put(&mut transaction, &ip_u32, &())
-                        .expect(&format!("Failed to insert IP {ip} (inserted {count})"));
+                        .unwrap_or_else(|_| panic!("Failed to insert IP {ip} (inserted {count})"));
 
                     count += 1;
                 }
