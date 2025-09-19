@@ -188,15 +188,16 @@ impl Module for Connector {
     }
 
     async fn before_hook(self: Arc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let ptr = self.clone();
+        let reconnect = self._reconnect.clone();
         let reconnect_task = tokio::spawn(async move {
-            let _ = ptr._reconnect.clone().run().await;
+            let _ = reconnect.clone().run().await;
         });
         self._reconnect_task.lock().await.replace(reconnect_task);
         Ok(())
     }
 
     async fn after_hook(self: Arc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
+        self._reconnect.stop();
         if let Some(reconnect_task) = self._reconnect_task.lock().await.take() {
             reconnect_task.await?;
         }
@@ -254,11 +255,15 @@ impl Module for Connector {
 
 struct Reconnector {
     _parent: Weak<Connector>,
+    _stopped: Arc<SetOnce<()>>,
 }
 
 impl Reconnector {
     pub fn new(parent: Weak<Connector>) -> Self {
-        Self { _parent: parent }
+        Self {
+            _parent: parent,
+            _stopped: Arc::new(SetOnce::new()),
+        }
     }
 }
 
@@ -271,16 +276,7 @@ impl Module for Reconnector {
     }
 
     fn stopped(&self) -> Arc<SetOnce<()>> {
-        match self._parent.upgrade() {
-            Some(parent) => parent._stopped.clone(),
-            None => {
-                let stopped = SetOnce::new();
-                stopped
-                    .set(())
-                    .expect("A SetOnce must be able to be set immediately after creation");
-                Arc::new(stopped)
-            }
-        }
+        self._stopped.clone()
     }
 
     async fn listen(self: Arc<Self>) -> Self::EventType {

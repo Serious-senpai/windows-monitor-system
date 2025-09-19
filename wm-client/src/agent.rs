@@ -1,7 +1,10 @@
+use std::error::Error;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use log::{error, info};
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{Mutex, SetOnce, mpsc};
+use tokio::task::JoinHandle;
 
 use crate::backup::Backup;
 use crate::configuration::Configuration;
@@ -18,8 +21,10 @@ pub struct Agent {
     _connector: Arc<Connector>,
 
     _config: Arc<Configuration>,
-    _http: Arc<HttpClient>,
+    _stopped: Arc<SetOnce<()>>,
     _backup: Arc<Mutex<Backup>>,
+    _http: Arc<HttpClient>,
+    _tasks: Arc<Mutex<Vec<JoinHandle<Result<(), Box<dyn Error + Send + Sync>>>>>>,
 }
 
 impl Agent {
@@ -34,35 +39,63 @@ impl Agent {
             _backup_sender: Arc::new(BackupSender::new(backup.clone(), http.clone())),
             _connector: Connector::new(config.clone(), receiver, backup.clone(), http.clone()),
             _config: config.clone(),
-            _http: http,
+            _stopped: Arc::new(SetOnce::new()),
             _backup: backup,
+            _http: http,
+            _tasks: Arc::new(Mutex::new(vec![])),
         }
     }
+}
 
-    pub async fn run(&self) {
+#[async_trait]
+impl Module for Agent {
+    type EventType = ();
+
+    fn name(&self) -> &str {
+        "Agent"
+    }
+
+    fn stopped(&self) -> Arc<SetOnce<()>> {
+        self._stopped.clone()
+    }
+
+    async fn listen(self: Arc<Self>) -> Self::EventType {
+        self._stopped.wait().await;
+    }
+
+    async fn handle(
+        self: Arc<Self>,
+        _: Self::EventType,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        Ok(())
+    }
+
+    async fn before_hook(self: Arc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
         info!(
             "Starting agent with configuration: {}",
             serde_json::to_string(&self._config).unwrap()
         );
 
-        let mut tasks = vec![];
+        let mut tasks = self._tasks.lock().await;
         tasks.push(tokio::spawn(self._tracer.clone().run()));
         tasks.push(tokio::spawn(self._backup_sender.clone().run()));
         tasks.push(tokio::spawn(self._connector.clone().run()));
 
-        for task in tasks {
-            if let Err(e) = task.await {
-                error!("Task failed with error: {e}");
-            }
-        }
-
-        info!("Agent run completed");
+        Ok(())
     }
 
-    pub async fn stop(&self) {
+    async fn after_hook(self: Arc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
         self._tracer.stop();
         self._backup_sender.stop();
         self._connector.stop();
-        self._backup.lock().await.flush().await;
+
+        let mut tasks = self._tasks.lock().await;
+        for task in tasks.drain(..) {
+            if let Err(e) = task.await? {
+                error!("Task failed: {}", e);
+            }
+        }
+
+        Ok(())
     }
 }

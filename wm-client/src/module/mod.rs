@@ -1,6 +1,5 @@
 pub mod backup;
 pub mod connector;
-pub mod scanner;
 pub mod tracer;
 
 use std::error::Error;
@@ -33,7 +32,10 @@ pub trait Module: Send + Sync {
 
     async fn run(self: Arc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
         debug!("Running before_hook for module {}", self.name());
-        self.clone().before_hook().await?;
+        if let Err(e) = self.clone().before_hook().await {
+            error!("Error in before_hook for module {}: {e}", self.name());
+            return Err(e);
+        }
 
         info!("Running module {}", self.name());
         while self.stopped().get().is_none() {
@@ -47,9 +49,12 @@ pub trait Module: Send + Sync {
         }
 
         debug!("Running after_hook for module {}", self.name());
-        self.clone().after_hook().await?;
+        if let Err(e) = self.clone().after_hook().await {
+            error!("Error in after_hook for module {}: {e}", self.name());
+            return Err(e);
+        }
 
-        info!("Module {} completed", self.name());
+        info!("Module {} completed successfully", self.name());
         Ok(())
     }
 

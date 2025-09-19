@@ -82,10 +82,6 @@ impl EventTracer {
 
         tracer
     }
-
-    async fn _set_trace(&self, trace: KernelTrace) {
-        *self._trace.lock().await = Some(trace);
-    }
 }
 
 #[async_trait]
@@ -108,13 +104,6 @@ impl Module for EventTracer {
         self: Arc<Self>,
         _: Self::EventType,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let mut self_trace = self._trace.lock().await;
-        if let Some(trace) = self_trace.take() {
-            trace
-                .stop()
-                .map_err(|e| RuntimeError::new(format!("Error stopping EventTracer: {e:?}")))?;
-        }
-
         Ok(())
     }
 
@@ -125,7 +114,7 @@ impl Module for EventTracer {
             .start()
             .map_err(|e| RuntimeError::new(format!("Unable to start kernel trace: {e:?}")))?;
 
-        self._set_trace(trace).await;
+        *self._trace.lock().await = Some(trace);
         self._trace_task
             .lock()
             .await
@@ -137,6 +126,13 @@ impl Module for EventTracer {
     }
 
     async fn after_hook(self: Arc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let mut self_trace = self._trace.lock().await;
+        if let Some(trace) = self_trace.take() {
+            trace
+                .stop()
+                .map_err(|e| RuntimeError::new(format!("Error stopping EventTracer: {e:?}")))?;
+        }
+
         let mut trace_task = self._trace_task.lock().await;
         if let Some(handle) = trace_task.take() {
             handle
