@@ -72,4 +72,30 @@ impl ServiceManager {
 
         Ok(ServiceStatus::new(status))
     }
+
+    pub fn change_service_user(
+        &self,
+        service_name: &str,
+        username: &str,
+        password: &str,
+    ) -> Result<(), WindowsError> {
+        let handle = self._open_service(service_name, Services::SERVICE_CHANGE_CONFIG)?;
+        unsafe {
+            Services::ChangeServiceConfigA(
+                handle,
+                Services::ENUM_SERVICE_TYPE(Services::SERVICE_NO_CHANGE),
+                Services::SERVICE_START_TYPE(Services::SERVICE_NO_CHANGE),
+                Services::SERVICE_ERROR(Services::SERVICE_NO_CHANGE),
+                None,
+                None,
+                None,
+                None,
+                PCSTR::from_raw(username.as_ptr()),
+                PCSTR::from_raw(password.as_ptr()),
+                None,
+            )?;
+        }
+
+        Ok(())
+    }
 }
