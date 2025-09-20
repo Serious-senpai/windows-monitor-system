@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
 use std::io;
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -17,13 +17,12 @@ use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::server::WebPkiClientVerifier;
 use rustls::{RootCertStore, ServerConfig};
 use tokio::net::TcpListener;
-use tokio::sync::{Mutex, OnceCell};
+use tokio::sync::OnceCell;
 use tokio::{signal, task};
 use tokio_rustls::TlsAcceptor;
 
 use crate::configuration::Configuration;
 use crate::elastic::ElasticsearchWrapper;
-use crate::eps::EPSQueue;
 use crate::responses::ResponseBuilder;
 use crate::routes::abc::Service;
 use crate::routes::backup::BackupService;
@@ -34,7 +33,6 @@ pub struct App {
     _config: Arc<Configuration>,
     _services: HashMap<String, Arc<dyn Service>>,
     _elastic: OnceCell<Arc<ElasticsearchWrapper>>,
-    _eps_queue: Mutex<HashMap<IpAddr, EPSQueue>>,
 }
 
 impl App {
@@ -75,7 +73,6 @@ impl App {
             _config: config,
             _services: services,
             _elastic: OnceCell::new(),
-            _eps_queue: Mutex::new(HashMap::new()),
         };
         let _ = this.elastic().await; // Pre-initialize Elasticsearch connection if possible
 
@@ -181,9 +178,5 @@ impl App {
         }
 
         Ok(())
-    }
-
-    pub fn eps_queue(&self) -> &Mutex<HashMap<IpAddr, EPSQueue>> {
-        &self._eps_queue
     }
 }

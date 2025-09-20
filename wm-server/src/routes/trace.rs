@@ -17,7 +17,6 @@ use wm_common::schema::event::CapturedEventRecord;
 use wm_common::schema::responses::TraceResponse;
 
 use crate::app::App;
-use crate::eps::EPSQueue;
 use crate::responses::ResponseBuilder;
 use crate::routes::abc::Service;
 
@@ -54,13 +53,6 @@ impl Service for TraceService {
                     data.len()
                 );
 
-                let (emit_eps, receive_eps) = {
-                    let mut map = app.eps_queue().lock().await;
-                    let queue = map.entry(peer.ip()).or_insert_with(EPSQueue::new);
-                    queue.count_eps(&data);
-
-                    (queue.emit_eps(), queue.receive_eps())
-                };
                 if let Some(elastic) = app.elastic().await {
                     tokio::spawn(async move {
                         let mut body = vec![];
@@ -89,13 +81,7 @@ impl Service for TraceService {
                     });
                 }
 
-                return ResponseBuilder::json(
-                    StatusCode::OK,
-                    TraceResponse {
-                        emit_eps,
-                        receive_eps,
-                    },
-                );
+                return ResponseBuilder::json(StatusCode::OK, TraceResponse {});
             }
 
             ResponseBuilder::default(StatusCode::BAD_REQUEST)
