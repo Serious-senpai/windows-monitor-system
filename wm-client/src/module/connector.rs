@@ -203,10 +203,17 @@ impl Module for Connector {
         }
 
         // Flush any remaining data in the buffers
+        let mut tasks = vec![];
         for payload in &self._uncompressed_buffer_pool {
             let payload = payload.clone().lock_owned().await;
             let ptr = self.clone();
-            tokio::spawn(async move { ptr._send_payload_utils(payload).await });
+            tasks.push(tokio::spawn(async move {
+                ptr._send_payload_utils(payload).await
+            }));
+        }
+
+        for task in tasks {
+            task.await?;
         }
 
         Ok(())
@@ -239,7 +246,7 @@ impl Module for Connector {
                     }
                 }
             }
-            Ok(None) => panic!("This should never happen"),
+            Ok(None) => {}
             Err(_) => {
                 tokio::spawn(async move { ptr._send_payload_utils(payload).await });
                 self._uncompressed_buffer_pool_index.store(

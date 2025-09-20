@@ -89,7 +89,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             scm.change_service_user(
                 &format!("{}\0", configuration.service_name),
                 ".\\Administrator\0",
-                &password,
+                &format!("{password}\0"),
             )?;
 
             info!(

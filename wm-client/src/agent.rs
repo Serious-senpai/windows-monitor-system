@@ -91,8 +91,10 @@ impl Module for Agent {
 
         let mut tasks = self._tasks.lock().await;
         for task in tasks.drain(..) {
-            if let Err(e) = task.await? {
-                error!("Task failed: {}", e);
+            match task.await {
+                Ok(Err(e)) => error!("Task failed: {e}"),
+                Err(e) => error!("Task panicked: {e}"),
+                _ => {}
             }
         }
 
