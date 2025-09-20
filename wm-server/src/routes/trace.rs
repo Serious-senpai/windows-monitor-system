@@ -53,8 +53,8 @@ impl Service for TraceService {
                     data.len()
                 );
 
-                if let Some(elastic) = app.elastic().await {
-                    tokio::spawn(async move {
+                tokio::spawn(async move {
+                    if let Some(elastic) = app.elastic().await {
                         let mut body = vec![];
 
                         debug!("Pushing {} events to Elasticsearch", data.len());
@@ -78,8 +78,8 @@ impl Service for TraceService {
                         {
                             error!("Elasticsearch API error: {e}");
                         }
-                    });
-                }
+                    }
+                });
 
                 return ResponseBuilder::json(StatusCode::OK, TraceResponse {});
             }

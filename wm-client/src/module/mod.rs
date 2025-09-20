@@ -6,7 +6,7 @@ use std::error::Error;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use log::{debug, error, info};
+use log::{debug, error, info, trace};
 use tokio::sync::SetOnce;
 
 #[async_trait]
@@ -41,10 +41,12 @@ pub trait Module: Send + Sync {
         while self.stopped().get().is_none() {
             let stopped = self.stopped();
             let event = tokio::select! {
+                biased;
                 _ = stopped.wait() => break,
                 event = self.clone().listen() => event,
             };
 
+            trace!("Running handler for module {}", self.name());
             self.clone().handle(event).await?;
         }
 
@@ -63,7 +65,7 @@ pub trait Module: Send + Sync {
         if let Err(e) = self.stopped().set(()) {
             error!("Error stopping module {}: {e}", self.name());
         } else {
-            info!("Module {} stopped", self.name());
+            info!("Stop signal sent to module {}", self.name());
         }
     }
 }

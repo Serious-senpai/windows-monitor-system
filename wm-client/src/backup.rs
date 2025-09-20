@@ -3,10 +3,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use async_compression::tokio::write::ZstdEncoder;
-use log::{debug, error, info};
+use log::{error, info};
 use tokio::fs;
 use tokio::io::{AsyncWriteExt, BufWriter};
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, SetOnce};
 use wm_common::schema::event::CapturedEventRecord;
 
 use crate::configuration::Configuration;
@@ -102,18 +102,21 @@ impl Backup {
     pub async fn upload(
         backup: Arc<Mutex<Self>>,
         http: Arc<HttpClient>,
+        stopped: Arc<SetOnce<()>>,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let backup_directory = backup.lock().await._config.backup_directory.clone();
 
         let mut entries = fs::read_dir(&backup_directory).await?;
-        while let Ok(Some(entry)) = entries.next_entry().await {
+        while let Ok(Some(entry)) = entries.next_entry().await
+            && stopped.get().is_none()
+        {
             if entry.path().extension().is_none_or(|s| s != "zst")
                 || entry.path() == backup.lock().await._path
             {
                 continue;
             }
 
-            debug!("Sending backup {}", entry.path().display());
+            info!("Sending backup {}", entry.path().display());
 
             let file = fs::File::open(entry.path()).await?;
             match http.api().post("/backup").body(file).send().await {

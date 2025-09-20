@@ -50,7 +50,9 @@ impl Module for BackupSender {
         self: Arc<Self>,
         _: Self::EventType,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        if let Err(e) = Backup::upload(self._backup.clone(), self._http.clone()).await {
+        if let Err(e) =
+            Backup::upload(self._backup.clone(), self._http.clone(), self.stopped()).await
+        {
             error!("Unable to upload backup: {e}");
         }
 

@@ -92,77 +92,72 @@ impl Connector {
         raw_payload.pop(); // Remove trailing comma
         raw_payload.push(b']');
 
-        let mut compressor = ZstdEncoder::with_quality(
-            raw_payload.as_slice(),
-            Level::Precise(self._config.zstd_compression_level),
-        );
-        let mut buffer = self._compressed_buffer_pool.acquire().await;
-        buffer.clear();
+        let mut write_to_backup = self._disconnected().await;
+        if !write_to_backup {
+            let mut compressor = ZstdEncoder::with_quality(
+                raw_payload.as_slice(),
+                Level::Precise(self._config.zstd_compression_level),
+            );
+            let mut buffer = self._compressed_buffer_pool.acquire().await;
+            buffer.clear();
 
-        if let Err(e) = compressor.read_buf(&mut *buffer).await {
-            error!("Unable to compress data: {e}");
-        } else {
-            let mut write_to_backup = self._disconnected().await;
-            if !write_to_backup {
+            let success = if let Err(e) = compressor.read_buf(&mut *buffer).await {
+                error!("Unable to compress data: {e}");
+                false
+            } else {
                 debug!(
                     "Sending {} bytes of uncompressed data (compressed to {} bytes)",
                     raw_payload.len(),
                     buffer.len(),
                 );
 
-                // Connection state may have been updated while waiting for the semaphore
-                if self._disconnected().await {
-                    write_to_backup = true;
-                } else {
-                    let success = match self
-                        ._http
-                        .api()
-                        .post("/trace")
-                        .body(buffer.clone().freeze())
-                        .send()
-                        .await
-                    {
-                        Ok(response) => {
-                            response.status() == 200
-                                && match response.json::<TraceResponse>().await {
-                                    Ok(data) => {
-                                        debug!("Server response {data:?}");
-                                        true
-                                    }
-                                    Err(e) => {
-                                        error!("Invalid server JSON response: {e}");
-                                        false
-                                    }
+                match self
+                    ._http
+                    .api()
+                    .post("/trace")
+                    .body(buffer.clone().freeze())
+                    .send()
+                    .await
+                {
+                    Ok(response) => {
+                        response.status() == 200
+                            && match response.json::<TraceResponse>().await {
+                                Ok(data) => {
+                                    debug!("Server response {data:?}");
+                                    true
                                 }
-                        }
-                        Err(e) => {
-                            error!(
-                                "Failed to send trace event to server: {e:?}, writing to backup instead"
-                            );
-                            false
-                        }
-                    };
-
-                    if !success {
-                        let mut errors_count = self._errors_count.write().await;
-                        *errors_count =
-                            (*errors_count + 1).min(self._config.event_post.concurrency_limit);
-                        write_to_backup = true;
+                                Err(e) => {
+                                    error!("Invalid server JSON response: {e}");
+                                    false
+                                }
+                            }
+                    }
+                    Err(e) => {
+                        error!(
+                            "Failed to send trace event to server: {e}, writing to backup instead"
+                        );
+                        false
                     }
                 }
-            }
+            };
 
-            if write_to_backup {
-                // Sadly we cannot reuse the compressed buffer above because the backup stream maintains its own state
-                debug!(
-                    "Backing up {} bytes of uncompressed data",
-                    raw_payload.len(),
-                );
-
-                let mut backup = self._backup.lock().await;
-                backup.write(raw_payload.as_slice()).await;
-                backup.write(b"\n").await;
+            if !success {
+                let mut errors_count = self._errors_count.write().await;
+                *errors_count = (*errors_count + 1).min(self._config.event_post.concurrency_limit);
+                write_to_backup = true;
             }
+        }
+
+        if write_to_backup {
+            // Sadly we cannot reuse the compressed buffer above because the backup stream maintains its own state
+            debug!(
+                "Backing up {} bytes of uncompressed data",
+                raw_payload.len(),
+            );
+
+            let mut backup = self._backup.lock().await;
+            backup.write(raw_payload.as_slice()).await;
+            backup.write(b"\n").await;
         }
 
         raw_payload.clear();
@@ -228,6 +223,7 @@ impl Module for Connector {
             .clone()
             .lock_owned()
             .await;
+
         let ptr = self.clone();
         match event {
             Ok(Some(event)) => {
