@@ -1,18 +1,18 @@
 use std::error::Error;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Weak};
+use std::time::Duration;
 
 use async_compression::Level;
 use async_compression::tokio::bufread::ZstdEncoder;
 use async_trait::async_trait;
 use bytes::BytesMut;
 use log::{debug, error};
-use tokio::fs;
 use tokio::io::AsyncReadExt;
-use tokio::sync::{Mutex, OwnedMutexGuard, RwLock, mpsc};
+use tokio::sync::{Mutex, OwnedMutexGuard, RwLock, SetOnce, mpsc};
 use tokio::task::JoinHandle;
+use tokio::time::error::Elapsed;
 use tokio::time::{sleep, timeout};
-use wm_common::error::RuntimeError;
 use wm_common::pool::Pool;
 use wm_common::schema::event::CapturedEventRecord;
 use wm_common::schema::responses::TraceResponse;
@@ -23,101 +23,63 @@ use crate::http::HttpClient;
 use crate::module::Module;
 
 pub struct Connector {
-    _configuration: Arc<Configuration>,
+    _config: Arc<Configuration>,
     _receiver: Mutex<mpsc::Receiver<Arc<CapturedEventRecord>>>,
-    _running: RwLock<bool>,
+    _stopped: Arc<SetOnce<()>>,
     _backup: Arc<Mutex<Backup>>,
 
     _http: Arc<HttpClient>,
 
     _errors_count: Arc<RwLock<usize>>,
-    _reconnect_task: JoinHandle<()>,
-    _upload_backup_task: JoinHandle<()>,
+    _reconnect: Arc<Reconnector>,
+    _reconnect_task: Mutex<Option<JoinHandle<()>>>,
 
-    _buffer_pool: Arc<Pool<BytesMut>>,
+    _uncompressed_buffer_pool: Vec<Arc<Mutex<Vec<u8>>>>,
+    _uncompressed_buffer_pool_index: AtomicUsize,
+    _compressed_buffer_pool: Arc<Pool<BytesMut>>,
 }
 
 impl Connector {
-    pub async fn async_new(
+    pub fn new(
         configuration: Arc<Configuration>,
         receiver: mpsc::Receiver<Arc<CapturedEventRecord>>,
         backup: Arc<Mutex<Backup>>,
         http: Arc<HttpClient>,
-    ) -> Self
+    ) -> Arc<Self>
     where
         Self: Sized,
     {
         let concurrency_limit = configuration.event_post.concurrency_limit;
         let errors_count = Arc::new(RwLock::new(0));
 
-        let http_cloned = http.clone();
-        let errors_count_cloned = errors_count.clone();
-        let reconnect_task = tokio::spawn(async move {
-            loop {
-                sleep(Duration::from_secs(5)).await;
+        let mut uncompressed_buffer_pool = vec![];
+        for _ in 0..configuration.event_post.concurrency_limit {
+            let mut buffer = Vec::with_capacity(configuration.event_post.flush_limit * 3 / 2);
+            buffer.push(b'[');
 
-                if Self::_static_disconnected(errors_count_cloned.clone(), concurrency_limit).await
-                {
-                    debug!("Attempting to reconnect to server...");
-                    if let Ok(response) = http_cloned.api().get("/health-check").send().await
-                        && response.status() == 204
-                    {
-                        *errors_count_cloned.write().await = 0;
-                    }
-                }
-            }
-        });
+            let payload = Arc::new(Mutex::new(buffer));
+            uncompressed_buffer_pool.push(payload);
+        }
 
-        let backup_cloned = backup.clone();
-        let http_cloned = http.clone();
-        let upload_backup_task = tokio::spawn(async move {
-            let mut last_backup_switch = Instant::now();
-            loop {
-                if let Err(e) = Backup::upload(backup_cloned.clone(), http_cloned.clone()).await {
-                    error!("Unable to upload backup: {e}");
-                }
-
-                sleep(Duration::from_secs(5)).await;
-
-                let mut backup = backup_cloned.lock().await;
-
-                if let Ok(metadata) = fs::metadata(backup.path()).await
-                    && metadata.len() < (5 << 20)
-                    && last_backup_switch.elapsed() < Duration::from_secs(60)
-                {
-                    // We switch backup files at most once every 1 minute or if the file exceeds 5 MB
-                } else {
-                    backup.switch_backup().await;
-                    last_backup_switch = Instant::now();
-                }
-            }
-        });
-
-        Self {
-            _configuration: configuration.clone(),
+        Arc::new_cyclic(|weak| Self {
+            _config: configuration.clone(),
             _receiver: Mutex::new(receiver),
-            _running: RwLock::new(false),
+            _stopped: Arc::new(SetOnce::new()),
             _backup: backup,
             _http: http,
             _errors_count: errors_count,
-            _reconnect_task: reconnect_task,
-            _upload_backup_task: upload_backup_task,
-            _buffer_pool: Arc::new(Pool::new(concurrency_limit, |_| {
+            _reconnect: Arc::new(Reconnector::new(weak.clone())),
+            _reconnect_task: Mutex::new(None),
+            _uncompressed_buffer_pool: uncompressed_buffer_pool,
+            _uncompressed_buffer_pool_index: AtomicUsize::new(0),
+            _compressed_buffer_pool: Arc::new(Pool::new(concurrency_limit, |_| {
                 BytesMut::with_capacity(8192) // these buffers are for compressed data, so we cannot predict them anyway (let's start with 8KB!)
             })),
-        }
-    }
-
-    async fn _static_disconnected(errors_count: Arc<RwLock<usize>>, limit: usize) -> bool {
-        *errors_count.read().await == limit
+        })
     }
 
     async fn _disconnected(&self) -> bool {
-        Self::_static_disconnected(
-            self._errors_count.clone(),
-            self._configuration.event_post.concurrency_limit,
-        )
-        .await
+        *self._errors_count.read().await == self._config.event_post.concurrency_limit
     }
 
     /// Input must contain only the opening bracket `[` OR an incomplete JSON array with a trailing comma
@@ -132,9 +94,9 @@ impl Connector {
 
         let mut compressor = ZstdEncoder::with_quality(
             raw_payload.as_slice(),
-            Level::Precise(self._configuration.zstd_compression_level),
+            Level::Precise(self._config.zstd_compression_level),
         );
-        let mut buffer = self._buffer_pool.acquire().await;
+        let mut buffer = self._compressed_buffer_pool.acquire().await;
         buffer.clear();
 
         if let Err(e) = compressor.read_buf(&mut *buffer).await {
@@ -183,8 +145,8 @@ impl Connector {
 
                     if !success {
                         let mut errors_count = self._errors_count.write().await;
-                        *errors_count = (*errors_count + 1)
-                            .min(self._configuration.event_post.concurrency_limit);
+                        *errors_count =
+                            (*errors_count + 1).min(self._config.event_post.concurrency_limit);
                         write_to_backup = true;
                     }
                 }
@@ -210,93 +172,142 @@ impl Connector {
 
 #[async_trait]
 impl Module for Connector {
+    type EventType = Result<Option<Arc<CapturedEventRecord>>, Elapsed>;
+
     fn name(&self) -> &str {
         "Connector"
     }
 
-    async fn run(self: Arc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
-        {
-            let mut running = self._running.write().await;
-            if *running {
-                return Err(RuntimeError::new("Connector is already running").into());
-            }
+    fn stopped(&self) -> Arc<SetOnce<()>> {
+        self._stopped.clone()
+    }
 
-            *running = true;
-        }
-
-        debug!("Running Connector");
-
+    async fn listen(self: Arc<Self>) -> Self::EventType {
         let mut receiver = self._receiver.lock().await;
-        let mut raw_payload_pool = vec![];
+        timeout(Duration::from_secs(1), receiver.recv()).await
+    }
 
-        for _ in 0..self._configuration.event_post.concurrency_limit {
-            let mut buffer = Vec::with_capacity(self._configuration.event_post.flush_limit * 3 / 2);
-            buffer.push(b'[');
+    async fn before_hook(self: Arc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let reconnect = self._reconnect.clone();
+        let reconnect_task = tokio::spawn(async move {
+            let _ = reconnect.clone().run().await;
+        });
+        self._reconnect_task.lock().await.replace(reconnect_task);
+        Ok(())
+    }
 
-            let payload = Arc::new(Mutex::new(buffer));
-            raw_payload_pool.push(payload);
+    async fn after_hook(self: Arc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
+        self._reconnect.stop();
+        if let Some(reconnect_task) = self._reconnect_task.lock().await.take() {
+            reconnect_task.await?;
         }
 
-        let mut index = 0;
-        loop {
-            if !*self._running.read().await {
-                break;
-            }
-
-            let received = timeout(Duration::from_secs(1), receiver.recv()).await;
-            if let Ok(None) = received {
-                break;
-            }
-
-            let mut payload = raw_payload_pool[index].clone().lock_owned().await;
+        // Flush any remaining data in the buffers
+        let mut tasks = vec![];
+        for payload in &self._uncompressed_buffer_pool {
+            let payload = payload.clone().lock_owned().await;
             let ptr = self.clone();
-            match received {
-                Ok(Some(event)) => {
-                    if let Err(e) = event.serialize_to_writer(&mut *payload) {
-                        error!("Failed to serialize {event:?}: {e}");
-                        payload.clear();
-                        payload.push(b'[');
-                    } else {
-                        payload.push(b',');
-                        if payload.len() > self._configuration.event_post.flush_limit {
-                            tokio::spawn(async move { ptr._send_payload_utils(payload).await });
-                            index = (index + 1) % raw_payload_pool.len();
-                        }
-                    }
-                }
-                Ok(None) => panic!("This should never happen"),
-                Err(_) => {
-                    tokio::spawn(async move { ptr._send_payload_utils(payload).await });
-                    index = (index + 1) % raw_payload_pool.len();
-                }
-            }
+            tasks.push(tokio::spawn(async move {
+                ptr._send_payload_utils(payload).await
+            }));
         }
 
-        debug!("Connector completed");
+        for task in tasks {
+            task.await?;
+        }
 
         Ok(())
     }
 
-    async fn stop(self: Arc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let mut running = self._running.write().await;
-        if !*running {
-            return Err(RuntimeError::new("Connector is not running").into());
+    async fn handle(
+        self: Arc<Self>,
+        event: Self::EventType,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let index = self._uncompressed_buffer_pool_index.load(Ordering::Relaxed);
+        let mut payload = self._uncompressed_buffer_pool[index]
+            .clone()
+            .lock_owned()
+            .await;
+        let ptr = self.clone();
+        match event {
+            Ok(Some(event)) => {
+                if let Err(e) = event.serialize_to_writer(&mut *payload) {
+                    error!("Failed to serialize {event:?}: {e}");
+                    payload.clear();
+                    payload.push(b'[');
+                } else {
+                    payload.push(b',');
+                    if payload.len() > self._config.event_post.flush_limit {
+                        tokio::spawn(async move { ptr._send_payload_utils(payload).await });
+                        self._uncompressed_buffer_pool_index.store(
+                            (index + 1) % self._uncompressed_buffer_pool.len(),
+                            Ordering::Relaxed,
+                        );
+                    }
+                }
+            }
+            Ok(None) => {}
+            Err(_) => {
+                tokio::spawn(async move { ptr._send_payload_utils(payload).await });
+                self._uncompressed_buffer_pool_index.store(
+                    (index + 1) % self._uncompressed_buffer_pool.len(),
+                    Ordering::Relaxed,
+                );
+            }
         }
-
-        debug!("Stopping Connector");
-
-        self._reconnect_task.abort();
-        self._upload_backup_task.abort();
-
-        *running = false;
-        debug!("Connector stopped");
 
         Ok(())
     }
 }
 
-impl Drop for Connector {
-    fn drop(&mut self) {
-        *self._running.get_mut() = false;
+struct Reconnector {
+    _parent: Weak<Connector>,
+    _stopped: Arc<SetOnce<()>>,
+}
+
+impl Reconnector {
+    pub fn new(parent: Weak<Connector>) -> Self {
+        Self {
+            _parent: parent,
+            _stopped: Arc::new(SetOnce::new()),
+        }
+    }
+}
+
+#[async_trait]
+impl Module for Reconnector {
+    type EventType = ();
+
+    fn name(&self) -> &str {
+        "Reconnector"
+    }
+
+    fn stopped(&self) -> Arc<SetOnce<()>> {
+        self._stopped.clone()
+    }
+
+    async fn listen(self: Arc<Self>) -> Self::EventType {
+        sleep(Duration::from_secs(5)).await;
+    }
+
+    async fn handle(
+        self: Arc<Self>,
+        _: Self::EventType,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let parent = match self._parent.upgrade() {
+            Some(parent) => parent,
+            None => return Ok(()),
+        };
+
+        if parent._disconnected().await {
+            debug!("Attempting to reconnect to server...");
+            if let Ok(response) = parent._http.api().get("/health-check").send().await
+                && response.status() == 204
+            {
+                *parent._errors_count.write().await = 0;
+            }
+        }
+
+        Ok(())
     }
 }

@@ -8,17 +8,40 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use async_compression::tokio::write::ZstdDecoder;
 use clap::Parser;
 use config_file::FromConfigFile;
-use log::{debug, info};
-use tokio::{fs, io, task};
+use log::{debug, error, info, warn};
+use tokio::{fs, io, signal, task};
 use windows::Win32::System::Services::SC_MANAGER_ALL_ACCESS;
+use windows_services::{Command, Service};
+use wm_client::agent::Agent;
 use wm_client::cli::{Arguments, ServiceAction};
 use wm_client::configuration::Configuration;
-use wm_client::runner::AgentRunner;
+use wm_client::module::Module;
 use wm_common::credential::CredentialManager;
 use wm_common::error::RuntimeError;
 use wm_common::logger::initialize_logger;
 use wm_common::service::service_manager::ServiceManager;
 use wm_common::service::status::ServiceState;
+
+fn _read_wcm_password(config: &Configuration) -> String {
+    let data = CredentialManager::read(&format!("{}\0", config.windows_credential_manager_key))
+        .unwrap_or_else(|e| {
+            let message = format!(
+                "Error reading \"{}\" from Windows Credential Manager: {e}",
+                config.windows_credential_manager_key
+            );
+            error!("{message}");
+            panic!("{message}");
+        });
+    String::from_utf8_lossy(&data).to_string()
+}
+
+fn _read_password(prompt: &str) -> String {
+    let mut stdout = stdout();
+    print!("{prompt}");
+    let _ = stdout.flush();
+
+    rpassword::read_password().expect("Unable to read password")
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -62,13 +85,31 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 &format!("{} start\0", executable_path.display()),
             )?;
 
-            info!("Done");
+            let password = _read_password("Administrator password (hidden)>");
+            scm.change_service_user(
+                &format!("{}\0", configuration.service_name),
+                ".\\Administrator\0",
+                &format!("{password}\0"),
+            )?;
+
+            info!(
+                "To start service, run: sc start \"{}\"",
+                configuration.service_name
+            );
+            info!(
+                "To query service, run: sc query \"{}\"",
+                configuration.service_name
+            );
         }
         ServiceAction::Start => {
             // let job = AssignJobGuard::new("wm-client-job-object")?;
             // job.cpu_limit(0.01)?;
 
-            if windows_service_detector::is_running_as_windows_service() == Ok(true) {
+            let agent = Arc::new(
+                Agent::async_new(configuration.clone(), &_read_wcm_password(&configuration)).await,
+            );
+            let s_handle = if windows_service_detector::is_running_as_windows_service() == Ok(true)
+            {
                 info!("Checking service {}", configuration.service_name);
 
                 let scm = ServiceManager::new(SC_MANAGER_ALL_ACCESS)?;
@@ -82,14 +123,45 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 }
 
                 info!("Starting service {}", configuration.service_name);
-                let mut runner = AgentRunner::new::<true>(configuration.clone());
-                runner.run().await?;
+
+                let agent = agent.clone();
+                Some(task::spawn_blocking(move || {
+                    Service::new().can_stop().run(|_, command| {
+                        debug!("Received service command: {command:?}");
+
+                        match command {
+                            Command::Stop => {
+                                info!("Stopping service");
+                                agent.stop();
+                            }
+                            _ => {
+                                warn!("Unsupported service command {command:?}")
+                            }
+                        }
+                    })
+                }))
             } else {
                 info!("Running as a standalone process");
+                None
+            };
 
-                let mut runner = AgentRunner::new::<false>(configuration.clone());
-                runner.run().await?;
+            let agent_cloned = agent.clone();
+            let mut a_handle = tokio::spawn(agent_cloned.run());
+
+            tokio::select! {
+                _ = signal::ctrl_c() => {
+                    info!("Received Ctrl+C signal");
+                    agent.stop();
+                },
+                _ = &mut a_handle => {
+                    info!("Agent task completed itself");
+                },
+            };
+
+            if let Some(s_handle) = s_handle {
+                s_handle.await??;
             }
+            a_handle.await??;
         }
         ServiceAction::Delete => {
             info!("Deleting service {}", configuration.service_name);
@@ -100,11 +172,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             info!("Done");
         }
         ServiceAction::Password => task::spawn_blocking(move || {
-            let mut stdout = stdout();
-            print!("Password (hidden)>");
-            let _ = stdout.flush();
-
-            let password = rpassword::read_password().expect("Unable to read password");
+            let password = _read_password("Password (hidden)>");
             CredentialManager::write(
                 &mut format!("{}\0", configuration.windows_credential_manager_key),
                 password.as_bytes(),
