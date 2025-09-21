@@ -1,0 +1,40 @@
+name: Lint
+
+on: [ push, pull_request ]
+
+permissions:
+  contents: read
+
+jobs:
+  rustfmt:
+    name: Run rustfmt
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly,1.89
+          components: clippy,rustfmt
+
+      - name: Run rustfmt via cargo fmt
+        run: cargo +nightly fmt -- --check
+
+  clippy:
+    name: Run clippy
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly,1.89
+          components: clippy,rustfmt
+
+      - name: Run clippy
+        run: cargo clippy --all-features --no-deps -- -D warnings
