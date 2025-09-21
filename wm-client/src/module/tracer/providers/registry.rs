@@ -7,16 +7,12 @@ use ferrisetw::{EventRecord, SchemaLocator};
 use wm_common::error::RuntimeError;
 use wm_common::schema::event::{Event, EventData};
 
-use crate::module::tracer::providers::ProviderWrapper;
+use crate::module::tracer::providers::{KernelProviderWrapper, ProviderWrapper};
 
 pub struct RegistryProviderWrapper;
 
 impl ProviderWrapper for RegistryProviderWrapper {
-    fn provider(self: Arc<Self>) -> &'static KernelProvider {
-        &REGISTRY_PROVIDER
-    }
-
-    fn filter(self: Arc<Self>, record: &EventRecord) -> bool {
+    fn filter(&self, record: &EventRecord) -> bool {
         record.opcode() == 10
             || record.opcode() == 12
             || record.opcode() == 14
@@ -31,7 +27,7 @@ impl ProviderWrapper for RegistryProviderWrapper {
         self: Arc<Self>,
         record: &EventRecord,
         schema_locator: &SchemaLocator,
-    ) -> Result<Event, Box<dyn Error + Send + Sync>> {
+    ) -> Result<Option<Event>, Box<dyn Error + Send + Sync>> {
         match schema_locator.event_schema(record) {
             Ok(schema) => {
                 let parser = Parser::create(record, &schema);
@@ -51,7 +47,7 @@ impl ProviderWrapper for RegistryProviderWrapper {
                     .try_parse::<String>("KeyName")
                     .map_err(RuntimeError::from)?;
 
-                Ok(Event::new(
+                Ok(Some(Event::new(
                     record,
                     EventData::Registry {
                         initial_time,
@@ -60,9 +56,15 @@ impl ProviderWrapper for RegistryProviderWrapper {
                         key_handle: *key_handle,
                         key_name,
                     },
-                ))
+                )))
             }
             Err(e) => Err(RuntimeError::new(format!("SchemaError: {e:?}")))?,
         }
+    }
+}
+
+impl KernelProviderWrapper for RegistryProviderWrapper {
+    fn provider(&self) -> &'static KernelProvider {
+        &REGISTRY_PROVIDER
     }
 }

@@ -1,5 +1,9 @@
 service_name: Windows Monitor Agent Service
-trace_name: Windows Monitor Event Tracer
+
+trace_name:
+  kernel: Windows Monitor Kernel Tracer
+  user: Windows Monitor User Tracer
+
 windows_credential_manager_key: Windows Monitor Client Certificate
 server: https://localhost:12110
 zstd_compression_level: 3

@@ -8,16 +8,12 @@ use ferrisetw::{EventRecord, SchemaLocator};
 use wm_common::error::RuntimeError;
 use wm_common::schema::event::{Event, EventData};
 
-use crate::module::tracer::providers::ProviderWrapper;
+use crate::module::tracer::providers::{KernelProviderWrapper, ProviderWrapper};
 
 pub struct TcpIpProviderWrapper;
 
 impl ProviderWrapper for TcpIpProviderWrapper {
-    fn provider(self: Arc<Self>) -> &'static KernelProvider {
-        &TCP_IP_PROVIDER
-    }
-
-    fn filter(self: Arc<Self>, record: &EventRecord) -> bool {
+    fn filter(&self, record: &EventRecord) -> bool {
         record.opcode() == 12 || record.opcode() == 13 || record.opcode() == 15
     }
 
@@ -25,7 +21,7 @@ impl ProviderWrapper for TcpIpProviderWrapper {
         self: Arc<Self>,
         record: &EventRecord,
         schema_locator: &SchemaLocator,
-    ) -> Result<Event, Box<dyn Error + Send + Sync>> {
+    ) -> Result<Option<Event>, Box<dyn Error + Send + Sync>> {
         match schema_locator.event_schema(record) {
             Ok(schema) => {
                 let parser = Parser::create(record, &schema);
@@ -46,7 +42,7 @@ impl ProviderWrapper for TcpIpProviderWrapper {
                     .try_parse::<u16>("sport")
                     .map_err(RuntimeError::from)?;
 
-                Ok(Event::new(
+                Ok(Some(Event::new(
                     record,
                     EventData::TcpIp {
                         pid,
@@ -56,9 +52,15 @@ impl ProviderWrapper for TcpIpProviderWrapper {
                         dport,
                         sport,
                     },
-                ))
+                )))
             }
             Err(e) => Err(RuntimeError::new(format!("SchemaError: {e:?}")))?,
         }
+    }
+}
+
+impl KernelProviderWrapper for TcpIpProviderWrapper {
+    fn provider(&self) -> &'static KernelProvider {
+        &TCP_IP_PROVIDER
     }
 }

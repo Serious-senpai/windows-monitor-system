@@ -7,16 +7,12 @@ use ferrisetw::{EventRecord, SchemaLocator};
 use wm_common::error::RuntimeError;
 use wm_common::schema::event::{Event, EventData};
 
-use crate::module::tracer::providers::ProviderWrapper;
+use crate::module::tracer::providers::{KernelProviderWrapper, ProviderWrapper};
 
 pub struct ImageProviderWrapper;
 
 impl ProviderWrapper for ImageProviderWrapper {
-    fn provider(self: Arc<Self>) -> &'static KernelProvider {
-        &IMAGE_LOAD_PROVIDER
-    }
-
-    fn filter(self: Arc<Self>, record: &EventRecord) -> bool {
+    fn filter(&self, record: &EventRecord) -> bool {
         record.opcode() == 2 || record.opcode() == 10
     }
 
@@ -24,7 +20,7 @@ impl ProviderWrapper for ImageProviderWrapper {
         self: Arc<Self>,
         record: &EventRecord,
         schema_locator: &SchemaLocator,
-    ) -> Result<Event, Box<dyn Error + Send + Sync>> {
+    ) -> Result<Option<Event>, Box<dyn Error + Send + Sync>> {
         match schema_locator.event_schema(record) {
             Ok(schema) => {
                 let parser = Parser::create(record, &schema);
@@ -44,7 +40,7 @@ impl ProviderWrapper for ImageProviderWrapper {
                     .try_parse::<String>("FileName")
                     .map_err(RuntimeError::from)?;
 
-                Ok(Event::new(
+                Ok(Some(Event::new(
                     record,
                     EventData::Image {
                         image_base: *image_base,
@@ -53,9 +49,15 @@ impl ProviderWrapper for ImageProviderWrapper {
                         image_checksum,
                         file_name,
                     },
-                ))
+                )))
             }
             Err(e) => Err(RuntimeError::new(format!("SchemaError: {e:?}")))?,
         }
+    }
+}
+
+impl KernelProviderWrapper for ImageProviderWrapper {
+    fn provider(&self) -> &'static KernelProvider {
+        &IMAGE_LOAD_PROVIDER
     }
 }

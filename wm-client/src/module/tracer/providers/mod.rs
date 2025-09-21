@@ -12,7 +12,7 @@ use chrono::Utc;
 use ferrisetw::provider::Provider;
 use ferrisetw::provider::kernel_providers::KernelProvider;
 use ferrisetw::trace::{KernelTrace, TraceBuilder};
-use ferrisetw::{EventRecord, SchemaLocator};
+use ferrisetw::{EventRecord, GUID, SchemaLocator, UserTrace};
 use log::{debug, error, warn};
 use parking_lot::Mutex as BlockingMutex;
 use tokio::sync::{Mutex, mpsc};
@@ -22,17 +22,59 @@ use crate::backup::Backup;
 use crate::module::tracer::enricher::BlockingEventEnricher;
 
 pub trait ProviderWrapper: Send + Sync {
-    fn provider(self: Arc<Self>) -> &'static KernelProvider;
-
-    fn filter(self: Arc<Self>, _record: &EventRecord) -> bool {
-        true
-    }
+    fn filter(&self, record: &EventRecord) -> bool;
 
     fn callback(
         self: Arc<Self>,
         record: &EventRecord,
         schema_locator: &SchemaLocator,
-    ) -> Result<Event, Box<dyn Error + Send + Sync>>;
+    ) -> Result<Option<Event>, Box<dyn Error + Send + Sync>>;
+}
+
+fn _callback_impl<T>(
+    wrapper: Arc<T>,
+    record: &EventRecord,
+    schema_locator: &SchemaLocator,
+    sender: mpsc::Sender<Arc<CapturedEventRecord>>,
+    enricher: Arc<BlockingMutex<BlockingEventEnricher>>,
+    backup: Arc<Mutex<Backup>>,
+    on_error: impl FnOnce(Box<dyn Error + Send + Sync>),
+) where
+    T: ProviderWrapper + ?Sized,
+{
+    if wrapper.filter(record) {
+        // cargo fmt error here: https://github.com/rust-lang/rustfmt/issues/5689
+        match wrapper.clone().callback(record, schema_locator) {
+            Ok(Some(event)) => match enricher.try_lock() {
+                Some(mut enricher) => {
+                    let data = Arc::new(CapturedEventRecord {
+                        event,
+                        system: enricher.system.system_info(),
+                        captured: Utc::now(),
+                    });
+
+                    if sender.try_send(data.clone()).is_err() {
+                        warn!("Message queue is full, backing up event to persistent file");
+
+                        let backup = backup.clone();
+                        tokio::spawn(async move {
+                            let mut backup = backup.lock().await;
+                            backup.write_one(&data).await;
+                        });
+                    }
+                }
+                None => {
+                    error!("Inconsistent state reached. This mutex should never block.");
+                }
+            },
+            Ok(None) => {}
+            Err(e) => on_error(e),
+        }
+    }
+}
+
+pub trait KernelProviderWrapper: ProviderWrapper {
+    fn provider(&self) -> &KernelProvider;
 
     fn attach(
         self: Arc<Self>,
@@ -44,46 +86,54 @@ pub trait ProviderWrapper: Send + Sync {
     where
         Self: 'static,
     {
-        let provider = self.clone().provider();
-        debug!("Attaching provider: {:?}", provider.guid);
+        let provider = self.provider();
+        debug!("Attaching kernel provider {:?}", provider.guid);
 
-        let ptr = self.clone();
         let provider = Provider::kernel(provider)
             .add_callback(move |record, schema_locator| {
-                if ptr.clone().filter(record) {
-                    // cargo fmt error here: https://github.com/rust-lang/rustfmt/issues/5689
-                    match ptr.clone().callback(record, schema_locator) {
-                        Ok(event) => match enricher.try_lock() {
-                            Some(mut enricher) => {
-                                let data = Arc::new(CapturedEventRecord {
-                                    event,
-                                    system: enricher.system.system_info(),
-                                    captured: Utc::now(),
-                                });
+                _callback_impl(
+                    self.clone(),
+                    record,
+                    schema_locator,
+                    sender.clone(),
+                    enricher.clone(),
+                    backup.clone(),
+                    |e| error!("Error handling event from {:?}: {e}", self.provider().guid),
+                );
+            })
+            .build();
 
-                                if sender.try_send(data.clone()).is_err() {
-                                    warn!(
-                                        "Message queue is full, backing up event to persistent file"
-                                    );
+        trace.enable(provider)
+    }
+}
 
-                                    let backup = backup.clone();
-                                    tokio::spawn(async move {
-                                        let mut backup = backup.lock().await;
-                                        backup.write_one(&data).await;
-                                    });
-                                }
-                            }
-                            None => {
-                                error!(
-                                    "Inconsistent state reached. This mutex should never block."
-                                );
-                            }
-                        },
-                        Err(e) => {
-                            error!("Error handling event from {:?}: {e}", provider.guid);
-                        }
-                    }
-                }
+pub trait UserProviderWrapper: ProviderWrapper {
+    fn guid(&self) -> &GUID;
+
+    fn attach(
+        self: Arc<Self>,
+        trace: TraceBuilder<UserTrace>,
+        sender: mpsc::Sender<Arc<CapturedEventRecord>>,
+        enricher: Arc<BlockingMutex<BlockingEventEnricher>>,
+        backup: Arc<Mutex<Backup>>,
+    ) -> TraceBuilder<UserTrace>
+    where
+        Self: 'static,
+    {
+        let guid = self.guid();
+        debug!("Attaching user provider {:?}", guid);
+
+        let provider = Provider::by_guid(*guid)
+            .add_callback(move |record, schema_locator| {
+                _callback_impl(
+                    self.clone(),
+                    record,
+                    schema_locator,
+                    sender.clone(),
+                    enricher.clone(),
+                    backup.clone(),
+                    |e| error!("Error handling event from {:?}: {e}", self.guid()),
+                );
             })
             .build();
 

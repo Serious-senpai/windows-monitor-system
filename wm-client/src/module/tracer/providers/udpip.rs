@@ -9,7 +9,7 @@ use windows::Win32::System::Diagnostics::Etw::EVENT_TRACE_FLAG_NETWORK_TCPIP;
 use wm_common::error::RuntimeError;
 use wm_common::schema::event::{Event, EventData};
 
-use crate::module::tracer::providers::ProviderWrapper;
+use crate::module::tracer::providers::{KernelProviderWrapper, ProviderWrapper};
 
 const _PROVIDER: KernelProvider = KernelProvider::new(
     GUID::from_values(
@@ -24,11 +24,7 @@ const _PROVIDER: KernelProvider = KernelProvider::new(
 pub struct UdpIpProviderWrapper;
 
 impl ProviderWrapper for UdpIpProviderWrapper {
-    fn provider(self: Arc<Self>) -> &'static KernelProvider {
-        &_PROVIDER
-    }
-
-    fn filter(self: Arc<Self>, record: &EventRecord) -> bool {
+    fn filter(&self, record: &EventRecord) -> bool {
         record.opcode() == 10 || record.opcode() == 11
     }
 
@@ -36,7 +32,7 @@ impl ProviderWrapper for UdpIpProviderWrapper {
         self: Arc<Self>,
         record: &EventRecord,
         schema_locator: &SchemaLocator,
-    ) -> Result<Event, Box<dyn Error + Send + Sync>> {
+    ) -> Result<Option<Event>, Box<dyn Error + Send + Sync>> {
         match schema_locator.event_schema(record) {
             Ok(schema) => {
                 let parser = Parser::create(record, &schema);
@@ -57,7 +53,7 @@ impl ProviderWrapper for UdpIpProviderWrapper {
                     .try_parse::<u16>("sport")
                     .map_err(RuntimeError::from)?;
 
-                Ok(Event::new(
+                Ok(Some(Event::new(
                     record,
                     EventData::UdpIp {
                         pid,
@@ -67,9 +63,15 @@ impl ProviderWrapper for UdpIpProviderWrapper {
                         dport,
                         sport,
                     },
-                ))
+                )))
             }
             Err(e) => Err(RuntimeError::new(format!("SchemaError: {e:?}")))?,
         }
+    }
+}
+
+impl KernelProviderWrapper for UdpIpProviderWrapper {
+    fn provider(&self) -> &'static KernelProvider {
+        &_PROVIDER
     }
 }
