@@ -73,16 +73,14 @@ impl<T> OnceCellNoRetry<T> {
         ) {
             Ok(_) => {
                 let _guard = _DropGuard { _cell: self };
-                let result = match f().await {
+                match f().await {
                     Ok(result) => {
                         unsafe { self._set_unchecked(result) };
                         self._initialized.store(true, Ordering::Release);
                         Some(unsafe { self._get_unchecked() })
                     }
                     Err(_) => None,
-                };
-
-                result
+                }
             }
             Err(_) => {
                 self._waiter.notified().await;
@@ -93,6 +91,12 @@ impl<T> OnceCellNoRetry<T> {
                 }
             }
         }
+    }
+}
+
+impl<T> Default for OnceCellNoRetry<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

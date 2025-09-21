@@ -14,6 +14,8 @@ use crate::module::backup::BackupSender;
 use crate::module::connector::Connector;
 use crate::module::tracer::EventTracer;
 
+type _ModuleTask = JoinHandle<Result<(), Box<dyn Error + Send + Sync>>>;
+
 pub struct Agent {
     // Module list
     _tracer: Arc<EventTracer>,
@@ -24,7 +26,7 @@ pub struct Agent {
     _stopped: Arc<SetOnce<()>>,
     _backup: Arc<Mutex<Backup>>,
     _http: Arc<HttpClient>,
-    _tasks: Arc<Mutex<Vec<JoinHandle<Result<(), Box<dyn Error + Send + Sync>>>>>>,
+    _tasks: Arc<Mutex<Vec<_ModuleTask>>>,
 }
 
 impl Agent {
