@@ -2,6 +2,9 @@ name: Lint
 
 on: [ push, pull_request ]
 
+env:
+  WINDOWS_MONITOR_PASSWORD: password
+
 permissions:
   contents: read
 
