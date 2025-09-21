@@ -17,9 +17,9 @@ use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::server::WebPkiClientVerifier;
 use rustls::{RootCertStore, ServerConfig};
 use tokio::net::TcpListener;
-use tokio::sync::OnceCell;
 use tokio::{signal, task};
 use tokio_rustls::TlsAcceptor;
+use wm_common::once_cell_no_retry::OnceCellNoRetry;
 
 use crate::configuration::Configuration;
 use crate::elastic::ElasticsearchWrapper;
@@ -32,7 +32,7 @@ use crate::routes::trace::TraceService;
 pub struct App {
     _config: Arc<Configuration>,
     _services: HashMap<String, Arc<dyn Service>>,
-    _elastic: OnceCell<Arc<ElasticsearchWrapper>>,
+    _elastic: OnceCellNoRetry<Arc<ElasticsearchWrapper>>,
 }
 
 impl App {
@@ -72,7 +72,7 @@ impl App {
         let this = Self {
             _config: config,
             _services: services,
-            _elastic: OnceCell::new(),
+            _elastic: OnceCellNoRetry::new(),
         };
         let _ = this.elastic().await; // Pre-initialize Elasticsearch connection if possible
 
@@ -90,9 +90,9 @@ impl App {
             })
             .await
         {
-            Ok(ptr) => Some(ptr.clone()),
-            Err(e) => {
-                error!("Unable to connect to Elasticsearch: {e}");
+            Some(ptr) => Some(ptr.clone()),
+            None => {
+                error!("Unable to connect to Elasticsearch");
                 None
             }
         }

@@ -218,6 +218,7 @@ impl Module for Connector {
         self: Arc<Self>,
         event: Self::EventType,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        // Ordering::Relaxed is sufficient because `.handle()` calls never overlap
         let index = self._uncompressed_buffer_pool_index.load(Ordering::Relaxed);
         let mut payload = self._uncompressed_buffer_pool[index]
             .clone()
