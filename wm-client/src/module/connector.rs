@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 
@@ -260,6 +260,7 @@ impl Module for Connector {
 struct Reconnector {
     _parent: Weak<Connector>,
     _stopped: Arc<SetOnce<()>>,
+    _sleep_secs: AtomicU64,
 }
 
 impl Reconnector {
@@ -267,6 +268,7 @@ impl Reconnector {
         Self {
             _parent: parent,
             _stopped: Arc::new(SetOnce::new()),
+            _sleep_secs: AtomicU64::new(5),
         }
     }
 }
@@ -284,13 +286,17 @@ impl Module for Reconnector {
     }
 
     async fn listen(self: Arc<Self>) -> Self::EventType {
-        sleep(Duration::from_secs(5)).await;
+        sleep(Duration::from_secs(
+            self._sleep_secs.load(Ordering::Relaxed),
+        ))
+        .await;
     }
 
     async fn handle(
         self: Arc<Self>,
         _: Self::EventType,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        // Ordering::Relaxed is sufficient because `.handle()` and `.listen()` calls never overlap
         let parent = match self._parent.upgrade() {
             Some(parent) => parent,
             None => return Ok(()),
@@ -302,6 +308,13 @@ impl Module for Reconnector {
                 && response.status() == 204
             {
                 *parent._errors_count.write().await = 0;
+                self._sleep_secs.store(5, Ordering::Relaxed);
+            } else {
+                let _ = self
+                    ._sleep_secs
+                    .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
+                        Some((v * 3 / 2).min(60))
+                    });
             }
         }
 
