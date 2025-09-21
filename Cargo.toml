@@ -6,7 +6,7 @@ members = ["mock-provider", "wm-client", "wm-common", "wm-generated", "wm-server
 async-compression = { version = "^0.4.27", features = ["tokio", "zstd"] }
 async-trait = "^0.1.88"
 chrono = { version = "^0.4.41", features = ["serde"] }
-clap = { version = "^4.5.42", features = ["cargo", "derive"] }
+clap = { version = "^4.5.48", features = ["cargo", "derive"] }
 config-file = { version = "^0.2.3", features = ["yaml"] }
 ferrisetw = "^1.2.0"
 heed = "^0.22.0"
