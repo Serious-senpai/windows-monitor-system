@@ -21,6 +21,7 @@ jobs:
         with:
           toolchain: nightly,1.89
           components: clippy,rustfmt
+          cache: false
 
       - name: Setup workspace
         run: scripts\setup.bat
@@ -41,6 +42,7 @@ jobs:
         with:
           toolchain: nightly,1.89
           components: clippy,rustfmt
+          cache: false
 
       - name: Setup workspace
         run: scripts\setup.bat
