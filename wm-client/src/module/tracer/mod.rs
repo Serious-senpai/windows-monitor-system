@@ -119,7 +119,7 @@ impl EventTracer {
     fn _user_trace(self: &Arc<Self>) -> TraceBuilder<UserTrace> {
         let mut builder = UserTrace::new().named(self._config.trace_name.user.clone());
         let wrappers: Vec<Arc<dyn UserProviderWrapper>> = vec![
-            Arc::new(FileProviderWrapper {}),
+            Arc::new(FileProviderWrapper::new()),
             // Add user provider wrappers here as needed
         ];
 
