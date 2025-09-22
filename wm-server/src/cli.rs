@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use clap::{Parser, Subcommand, crate_description, crate_version};
 
 #[derive(Debug, Parser)]
@@ -21,10 +19,4 @@ pub enum ServerAction {
 
     /// Update Elasticsearch detection rules from the remote repository
     UpdateRules,
-
-    /// Fetch blacklist from remote source and update local database
-    FetchBlacklist {
-        /// Destination directory for the LMDB
-        dest: PathBuf,
-    },
 }

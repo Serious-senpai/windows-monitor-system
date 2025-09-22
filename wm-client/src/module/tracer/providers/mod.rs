@@ -34,7 +34,6 @@ fn _callback_impl<T>(
     sender: mpsc::Sender<Arc<CapturedEventRecord>>,
     enricher: Arc<BlockingMutex<BlockingEventEnricher>>,
     backup: Arc<Mutex<Backup>>,
-    on_error: impl FnOnce(Box<dyn Error + Send + Sync>),
 ) where
     T: ProviderWrapper + ?Sized,
 {
@@ -64,7 +63,17 @@ fn _callback_impl<T>(
                 }
             },
             Ok(None) => {}
-            Err(e) => on_error(e),
+            Err(e) => error!(
+                "Error handling event from {:?} (event_id={}, opcode={}, version={}, level={}, keyword={}, pid={}, tid={}): {e}",
+                record.provider_id(),
+                record.event_id(),
+                record.opcode(),
+                record.version(),
+                record.level(),
+                record.keyword(),
+                record.process_id(),
+                record.thread_id(),
+            ),
         }
     }
 }
@@ -94,7 +103,6 @@ pub trait KernelProviderWrapper: ProviderWrapper {
                     sender.clone(),
                     enricher.clone(),
                     backup.clone(),
-                    |e| error!("Error handling event from {:?}: {e}", self.provider().guid),
                 );
             })
             .build();
@@ -117,7 +125,7 @@ pub trait UserProviderWrapper: ProviderWrapper {
         Self: 'static,
     {
         let guid = self.guid();
-        debug!("Attaching user provider {:?}", guid);
+        debug!("Attaching user provider {guid:?}");
 
         let provider = Provider::by_guid(*guid)
             .add_callback(move |record, schema_locator| {
@@ -128,7 +136,6 @@ pub trait UserProviderWrapper: ProviderWrapper {
                     sender.clone(),
                     enricher.clone(),
                     backup.clone(),
-                    |e| error!("Error handling event from {:?}: {e}", self.guid()),
                 );
             })
             .build();
