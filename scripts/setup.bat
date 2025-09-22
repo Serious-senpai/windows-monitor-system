@@ -21,4 +21,6 @@ copy /-y "%root%\vscode.json" "%root%\.vscode\settings.json"
 if not exist "%root%\cert\" (
     mkdir "%root%\cert\"
 )
-openssl req -x509 -newkey rsa:4096 -sha512 -days 3650 -noenc -keyout %root%\cert\server.rsa -out %root%\cert\server.pem -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,DNS:*.localhost"
+
+set OPENSSL_CONF=%root%\extern\OpenSSL\3.4.1\ssl\openssl.cnf
+%root%\extern\OpenSSL\3.4.1\bin\openssl req -x509 -newkey rsa:4096 -sha512 -days 3650 -noenc -keyout %root%\cert\server.rsa -out %root%\cert\server.pem -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,DNS:*.localhost"
