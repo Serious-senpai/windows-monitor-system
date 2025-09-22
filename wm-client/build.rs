@@ -56,6 +56,10 @@ fn create_client_certificate(paths: &CommonPaths) {
         "cargo:rerun-if-changed={}",
         paths.cert_dir.join("server.pem").display()
     );
+    println!(
+        "cargo:rerun-if-changed={}",
+        paths.cert_dir.join("server.rsa").display()
+    );
     execute(
         "openssl",
         &[

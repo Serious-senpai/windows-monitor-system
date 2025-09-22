@@ -2,29 +2,26 @@ use std::error::Error;
 use std::sync::Arc;
 
 use ferrisetw::parser::{Parser, Pointer};
-use ferrisetw::provider::kernel_providers::KernelProvider;
 use ferrisetw::{EventRecord, GUID, SchemaLocator};
-use windows::Win32::System::Diagnostics::Etw::EVENT_TRACE_FLAG_DISK_FILE_IO;
 use wm_common::error::RuntimeError;
 use wm_common::schema::event::{Event, EventData};
 
-use crate::module::tracer::providers::{KernelProviderWrapper, ProviderWrapper};
+use crate::module::tracer::providers::{ProviderWrapper, UserProviderWrapper};
 
-const _PROVIDER: KernelProvider = KernelProvider::new(
-    GUID::from_values(
+pub struct FileProviderWrapper;
+
+impl FileProviderWrapper {
+    const _GUID: GUID = GUID::from_values(
         0xedd08927,
         0x9cc4,
         0x4e65,
         [0xb9, 0x70, 0xc2, 0x56, 0x0f, 0xb5, 0xc2, 0x89],
-    ),
-    EVENT_TRACE_FLAG_DISK_FILE_IO.0,
-);
-
-pub struct FileProviderWrapper;
+    );
+}
 
 impl ProviderWrapper for FileProviderWrapper {
     fn filter(&self, record: &EventRecord) -> bool {
-        record.opcode() == 0 || record.opcode() == 32 || record.opcode() == 35
+        record.opcode() == 10
     }
 
     fn callback(
@@ -36,7 +33,7 @@ impl ProviderWrapper for FileProviderWrapper {
             Ok(schema) => {
                 let parser = Parser::create(record, &schema);
                 let file_object = parser
-                    .try_parse::<Pointer>("FileObject")
+                    .try_parse::<Pointer>("FileKey")
                     .map_err(RuntimeError::from)?;
                 let file_name = parser
                     .try_parse::<String>("FileName")
@@ -55,8 +52,8 @@ impl ProviderWrapper for FileProviderWrapper {
     }
 }
 
-impl KernelProviderWrapper for FileProviderWrapper {
-    fn provider(&self) -> &KernelProvider {
-        &_PROVIDER
+impl UserProviderWrapper for FileProviderWrapper {
+    fn guid(&self) -> &GUID {
+        &Self::_GUID
     }
 }

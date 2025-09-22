@@ -1,9 +1,5 @@
-pub mod file;
-pub mod image;
-pub mod process;
-pub mod registry;
-pub mod tcpip;
-pub mod udpip;
+pub mod kernel;
+pub mod user;
 
 use std::error::Error;
 use std::sync::Arc;

@@ -11,17 +11,19 @@ use wm_common::schema::event::{Event, EventData};
 
 use crate::module::tracer::providers::{KernelProviderWrapper, ProviderWrapper};
 
-const _PROVIDER: KernelProvider = KernelProvider::new(
-    GUID::from_values(
-        0xbf3a50c5,
-        0xa9c9,
-        0x4988,
-        [0xa0, 0x05, 0x2d, 0xf0, 0xb7, 0xc8, 0x0f, 0x80],
-    ),
-    EVENT_TRACE_FLAG_NETWORK_TCPIP.0,
-);
-
 pub struct UdpIpProviderWrapper;
+
+impl UdpIpProviderWrapper {
+    const _PROVIDER: KernelProvider = KernelProvider::new(
+        GUID::from_values(
+            0xbf3a50c5,
+            0xa9c9,
+            0x4988,
+            [0xa0, 0x05, 0x2d, 0xf0, 0xb7, 0xc8, 0x0f, 0x80],
+        ),
+        EVENT_TRACE_FLAG_NETWORK_TCPIP.0,
+    );
+}
 
 impl ProviderWrapper for UdpIpProviderWrapper {
     fn filter(&self, record: &EventRecord) -> bool {
@@ -72,6 +74,6 @@ impl ProviderWrapper for UdpIpProviderWrapper {
 
 impl KernelProviderWrapper for UdpIpProviderWrapper {
     fn provider(&self) -> &'static KernelProvider {
-        &_PROVIDER
+        &Self::_PROVIDER
     }
 }
