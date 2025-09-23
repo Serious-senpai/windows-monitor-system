@@ -7,6 +7,7 @@ use chrono::{DateTime, Utc};
 use ferrisetw::EventRecord;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use windows::Wdk::Storage::FileSystem::{FileAllocationInformation, FileEndOfFileInformation};
 use wm_generated::ecs::{
     ECS, ECS_Destination, ECS_Dll, ECS_Dll_CodeSignature, ECS_Event, ECS_File, ECS_Host,
     ECS_Host_Cpu, ECS_Host_Os, ECS_Process, ECS_Registry, ECS_Source,
@@ -221,8 +222,9 @@ impl CapturedEventRecord {
             }
             EventData::FileOperation {
                 file_object,
+                extra_info,
+                info_class,
                 file_path,
-                ..
             } => {
                 event.action = Some(vec![
                     match self.event.opcode {
@@ -250,6 +252,15 @@ impl CapturedEventRecord {
                     .file_name()
                     .map(|s| vec![s.to_string_lossy().to_string()]);
                 file.path = Some(vec![file_path.clone()]);
+
+                let info_class = *info_class as i32;
+                file.size = if info_class == FileAllocationInformation.0
+                    || info_class == FileEndOfFileInformation.0
+                {
+                    i64::try_from(*extra_info).ok()
+                } else {
+                    None
+                };
                 ecs.file = Some(file);
             }
             EventData::Image { file_name, .. } => {
