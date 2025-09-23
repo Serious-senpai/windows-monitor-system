@@ -20,12 +20,12 @@ use crate::backup::Backup;
 use crate::configuration::Configuration;
 use crate::module::Module;
 use crate::module::tracer::enricher::BlockingEventEnricher;
+use crate::module::tracer::providers::kernel::file::FileProviderWrapper;
 use crate::module::tracer::providers::kernel::image::ImageProviderWrapper;
 use crate::module::tracer::providers::kernel::process::ProcessProviderWrapper;
 use crate::module::tracer::providers::kernel::registry::RegistryProviderWrapper;
 use crate::module::tracer::providers::kernel::tcpip::TcpIpProviderWrapper;
 use crate::module::tracer::providers::kernel::udpip::UdpIpProviderWrapper;
-use crate::module::tracer::providers::user::file::FileProviderWrapper;
 use crate::module::tracer::providers::{KernelProviderWrapper, UserProviderWrapper};
 
 struct _TraceTask<T> {
@@ -95,7 +95,7 @@ impl EventTracer {
     fn _kernel_trace(self: &Arc<Self>) -> TraceBuilder<KernelTrace> {
         let mut builder = KernelTrace::new().named(self._config.trace_name.kernel.clone());
         let wrappers: Vec<Arc<dyn KernelProviderWrapper>> = vec![
-            // Arc::new(FileProviderWrapper {}),
+            Arc::new(FileProviderWrapper::new(1000)),
             Arc::new(ImageProviderWrapper {}),
             Arc::new(ProcessProviderWrapper {}),
             Arc::new(RegistryProviderWrapper {}),
@@ -119,7 +119,6 @@ impl EventTracer {
     fn _user_trace(self: &Arc<Self>) -> TraceBuilder<UserTrace> {
         let mut builder = UserTrace::new().named(self._config.trace_name.user.clone());
         let wrappers: Vec<Arc<dyn UserProviderWrapper>> = vec![
-            Arc::new(FileProviderWrapper::new()),
             // Add user provider wrappers here as needed
         ];
 
