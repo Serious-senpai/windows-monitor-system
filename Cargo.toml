@@ -3,7 +3,7 @@ resolver = "2"
 members = ["mock-provider", "wm-client", "wm-common", "wm-generated", "wm-server"]
 
 [workspace.dependencies]
-async-compression = { version = "^0.4.27", features = ["tokio", "zstd"] }
+async-compression = { version = "^0.4.30", features = ["tokio", "zstd"] }
 async-trait = "^0.1.88"
 chrono = { version = "^0.4.41", features = ["serde"] }
 clap = { version = "^4.5.48", features = ["cargo", "derive"] }
