@@ -48,6 +48,8 @@ impl ProviderWrapper for FileProviderWrapper {
             || record.opcode() == 69
             || record.opcode() == 70
             || record.opcode() == 71
+            || record.opcode() == 74
+            || record.opcode() == 75
     }
 
     fn callback(
@@ -106,7 +108,7 @@ impl ProviderWrapper for FileProviderWrapper {
                             },
                         )))
                     }
-                    69 | 70 | 71 => {
+                    69 | 70 | 71 | 74 | 75 => {
                         let file_object = parser
                             .try_parse::<Pointer>("FileObject")
                             .map_err(RuntimeError::from)?;
