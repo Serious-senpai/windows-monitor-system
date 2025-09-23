@@ -33,7 +33,7 @@ impl FileProviderWrapper {
     pub fn new(cache_size: usize) -> Self {
         Self {
             _mapping: BlockingMutex::new(LruCache::new(
-                NonZeroUsize::new(cache_size).unwrap_or_else(|| panic!("{} > 0", cache_size)),
+                NonZeroUsize::new(cache_size).unwrap_or_else(|| panic!("{cache_size} > 0")),
             )),
         }
     }

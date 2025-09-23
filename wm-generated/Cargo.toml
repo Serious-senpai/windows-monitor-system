@@ -9,7 +9,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 [build-dependencies]
-fancy-regex = "^0.16.1"
+fancy-regex = { workspace = true }
 serde_json = { workspace = true }
 
 [lints]

@@ -3070,6 +3070,7 @@ dependencies = [
  "clap",
  "config-file",
  "elasticsearch",
+ "fancy-regex",
  "futures-util",
  "http-body-util",
  "hyper",

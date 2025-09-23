@@ -8,8 +8,8 @@ use ferrisetw::EventRecord;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use wm_generated::ecs::{
-    ECS, ECS_Destination, ECS_Dll, ECS_Event, ECS_File, ECS_Host, ECS_Host_Cpu, ECS_Host_Os,
-    ECS_Process, ECS_Registry, ECS_Source,
+    ECS, ECS_Destination, ECS_Dll, ECS_Dll_CodeSignature, ECS_Event, ECS_File, ECS_Host,
+    ECS_Host_Cpu, ECS_Host_Os, ECS_Process, ECS_Registry, ECS_Source,
 };
 
 use crate::schema::ecs_converter::file_attributes;
@@ -175,6 +175,10 @@ impl CapturedEventRecord {
         host.os = Some(os);
 
         let mut event = ECS_Event::new();
+        event.code = Some(vec![
+            self.event.event_id.to_string(),
+            self.event.opcode.to_string(),
+        ]);
         event.created = Some(self.captured);
         event.ingested = Some(Utc::now());
         event.kind = Some(vec!["event".to_string()]);
@@ -197,7 +201,6 @@ impl CapturedEventRecord {
             } => {
                 event.action = Some(vec!["file-create".to_string()]);
                 event.category = Some(vec!["file".to_string()]);
-                event.outcome = Some(vec!["success".to_string()]);
                 event.type_ = Some(vec!["creation".to_string()]);
 
                 let path = Path::new(open_path);
@@ -233,7 +236,6 @@ impl CapturedEventRecord {
                     .to_string(),
                 ]);
                 event.category = Some(vec!["file".to_string()]);
-                event.outcome = Some(vec!["success".to_string()]);
                 event.type_ = Some(vec!["creation".to_string()]);
 
                 let path = Path::new(file_path);
@@ -260,7 +262,6 @@ impl CapturedEventRecord {
                     .to_string(),
                 ]);
                 event.category = Some(vec!["library".to_string()]);
-                event.outcome = Some(vec!["success".to_string()]);
                 event.type_ = Some(vec![
                     match self.event.opcode {
                         2 => "end",
@@ -272,11 +273,16 @@ impl CapturedEventRecord {
 
                 let path = Path::new(file_name);
 
+                let mut signature = ECS_Dll_CodeSignature::new();
+                signature.exists = Some(false);
+
                 let mut dll = ECS_Dll::new();
+                dll.code_signature = Some(signature);
                 dll.name = path
                     .file_name()
                     .map(|s| vec![s.to_string_lossy().to_string()]);
                 dll.path = Some(vec![file_name.clone()]);
+
                 ecs.dll = Some(dll);
             }
             EventData::Process {
@@ -295,7 +301,6 @@ impl CapturedEventRecord {
                     .to_string(),
                 ]);
                 event.category = Some(vec!["process".to_string()]);
-                event.outcome = Some(vec!["success".to_string()]);
                 event.type_ = Some(vec![
                     match self.event.opcode {
                         1 => "start",
@@ -331,7 +336,6 @@ impl CapturedEventRecord {
                     .to_string(),
                 ]);
                 event.category = Some(vec!["registry".to_string()]);
-                event.outcome = Some(vec!["success".to_string()]);
                 event.type_ = Some(vec![
                     match self.event.opcode {
                         10 | 22 => "creation",
@@ -376,7 +380,6 @@ impl CapturedEventRecord {
                     .to_string(),
                 ]);
                 event.category = Some(vec!["network".to_string()]);
-                event.outcome = Some(vec!["success".to_string()]);
                 event.type_ = Some(vec!["connection".to_string()]);
 
                 let mut source = ECS_Source::new();

@@ -19,4 +19,7 @@ pub enum ServerAction {
 
     /// Update Elasticsearch detection rules from the remote repository
     UpdateRules,
+
+    /// List ECS fields required by Elasticsearch detection rules
+    RequiredFields,
 }

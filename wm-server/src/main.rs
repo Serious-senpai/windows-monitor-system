@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::env;
 use std::error::Error;
 use std::fs::File;
@@ -6,6 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use clap::Parser;
 use config_file::FromConfigFile;
+use fancy_regex::Regex;
 use log::{debug, error, info};
 use reqwest::multipart::{Form, Part};
 use tokio::fs;
@@ -82,6 +84,28 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 Err(e) => {
                     error!("Unable to send request to Kibana: {e}");
                 }
+            }
+        }
+        ServerAction::RequiredFields => {
+            let mut fields = HashSet::new();
+            let pattern = Regex::new(
+                r"(?<![\.\w])(?:@timestamp|agent|client|cloud|container|data_stream|destination|device|dll|dns|ecs|email|error|event|faas|file|gen_ai|group|host|http|labels|log|message|network|observer|orchestrator|organization|package|process|registry|related|rule|server|service|source|span|tags|threat|tls|trace|transaction|url|user|user_agent|volume|vulnerability)(?:\.[a-z_]+)+",
+            )?;
+
+            let rules = rules::fetch_remote_rules().await?;
+            for rule in &rules {
+                let query = rule["query"].as_str().unwrap_or_default();
+                for capture in pattern.find_iter(query) {
+                    fields.insert(capture?.as_str());
+                }
+            }
+
+            let mut fields = fields.into_iter().collect::<Vec<&str>>();
+            fields.sort();
+
+            info!("Required ECS fields ({}):", fields.len());
+            for field in fields {
+                info!("{field}");
             }
         }
     }
