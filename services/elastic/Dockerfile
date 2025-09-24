@@ -1,7 +1,7 @@
 FROM elasticsearch:9.1.0 AS elasticsearch
 
-COPY config/elasticsearch-certutil.txt /usr/share/elasticsearch/elasticsearch-certutil.txt
-COPY config/elasticsearch.yml /usr/share/elasticsearch/config/elasticsearch.yml
+COPY services/elastic/elasticsearch-certutil.txt /usr/share/elasticsearch/elasticsearch-certutil.txt
+COPY services/elastic/elasticsearch.yml /usr/share/elasticsearch/config/elasticsearch.yml
 # RUN bin/elasticsearch-certutil http < elasticsearch-certutil.txt && \
 #     unzip /usr/share/elasticsearch/elasticsearch-ssl-http.zip -d /usr/share/elasticsearch/elasticsearch-ssl-http && \
 #     rm /usr/share/elasticsearch/elasticsearch-ssl-http.zip && \
@@ -17,5 +17,5 @@ FROM kibana:9.1.0 AS kibana
 RUN bin/kibana-keystore create && \
     printf "kibana-password\n" | bin/kibana-keystore add -x elasticsearch.password
 
-COPY config/kibana.yml /usr/share/kibana/config/kibana.yml
+COPY services/elastic/kibana.yml /usr/share/kibana/config/kibana.yml
 # COPY --from=elasticsearch /usr/share/elasticsearch/elasticsearch-ssl-http/kibana/elasticsearch-ca.pem /usr/share/kibana/config/elasticsearch-ca.pem

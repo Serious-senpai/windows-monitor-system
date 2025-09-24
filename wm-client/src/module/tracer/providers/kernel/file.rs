@@ -50,6 +50,8 @@ impl ProviderWrapper for FileProviderWrapper {
             || record.opcode() == 71
             || record.opcode() == 74
             || record.opcode() == 75
+            || record.opcode() == 67
+            || record.opcode() == 68
     }
 
     fn callback(
@@ -126,10 +128,46 @@ impl ProviderWrapper for FileProviderWrapper {
                             Some(mut mapping) => match mapping.get(&file_key).cloned() {
                                 Some(file_path) => Ok(Some(Event::new(
                                     record,
-                                    EventData::FileOperation {
+                                    EventData::FileInfo {
                                         file_object: *file_object,
                                         extra_info: *extra_info,
                                         info_class,
+                                        file_path,
+                                    },
+                                ))),
+                                None => Ok(None),
+                            },
+                            None => Err(RuntimeError::new(
+                                "File I/O mapping mutex should never block",
+                            ))?,
+                        }
+                    }
+                    67 | 68 => {
+                        let offset = parser
+                            .try_parse::<u64>("Offset")
+                            .map_err(RuntimeError::from)?;
+                        let file_object = parser
+                            .try_parse::<Pointer>("FileObject")
+                            .map_err(RuntimeError::from)?;
+                        let file_key = parser
+                            .try_parse::<Pointer>("FileKey")
+                            .map_err(RuntimeError::from)?;
+                        let size = parser
+                            .try_parse::<u32>("IoSize")
+                            .map_err(RuntimeError::from)?;
+                        let flags = parser
+                            .try_parse::<u32>("IoFlags")
+                            .map_err(RuntimeError::from)?;
+
+                        match self._mapping.try_lock() {
+                            Some(mut mapping) => match mapping.get(&file_key).cloned() {
+                                Some(file_path) => Ok(Some(Event::new(
+                                    record,
+                                    EventData::FileReadWrite {
+                                        offset,
+                                        file_object: *file_object,
+                                        size,
+                                        flags,
                                         file_path,
                                     },
                                 ))),

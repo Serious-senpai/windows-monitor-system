@@ -1,24 +1,10 @@
 # Reference: https://docs.docker.com/reference/compose-file/
 name: windows-monitor
 
-x-rabbitmq-default: &rabbitmq-default
-  cpus: 1.0
-  environment:
-    - RABBITMQ_ERLANG_COOKIE=cluster_cookie
-  healthcheck:
-    test: rabbitmq-diagnostics -q status
-    interval: 5s
-    timeout: 5s
-    retries: 50
-    start_period: 15s
-  image: custom-rabbitmq
-  mem_limit: 1gb
-  user: rabbitmq
-
 services:
   elasticsearch:
     build:
-      dockerfile: elastic-stack.Dockerfile
+      dockerfile: services/elastic/Dockerfile
       target: elasticsearch
     container_name: elasticsearch
     cpus: 2.0
@@ -30,7 +16,7 @@ services:
 
   kibana:
     build:
-      dockerfile: elastic-stack.Dockerfile
+      dockerfile: services/elastic/Dockerfile
       target: kibana
     container_name: kibana
     cpus: 2.0
@@ -41,40 +27,22 @@ services:
       - 5601:5601
     restart: unless-stopped
 
-  rabbitmq-1:
+  rabbitmq:
     build:
       dockerfile: services/rabbitmq/Dockerfile
-    container_name: rabbitmq-1
-    hostname: rabbitmq-1
+    container_name: rabbitmq
+    cpus: 1.0
+    environment:
+      - RABBITMQ_ERLANG_COOKIE=cluster_cookie
+    healthcheck:
+      test: rabbitmq-diagnostics -q status
+      interval: 5s
+      timeout: 5s
+      retries: 50
+      start_period: 15s
+    hostname: rabbitmq
+    image: custom-rabbitmq
+    mem_limit: 1gb
     ports:
       - 15672:15672
-    <<: *rabbitmq-default
-
-  rabbitmq-2:
-    container_name: rabbitmq-2
-    hostname: rabbitmq-2
-    ports:
-      - 15673:15672
-    <<: *rabbitmq-default
-
-  rabbitmq-3:
-    container_name: rabbitmq-3
-    hostname: rabbitmq-3
-    ports:
-      - 15674:15672
-    <<: *rabbitmq-default
-
-  rabbitmq-proxy:
-    build:
-      dockerfile: services/rabbitmq-proxy/Dockerfile
-    container_name: rabbitmq-proxy
-    depends_on:
-      rabbitmq-1:
-        condition: service_healthy
-      rabbitmq-2:
-        condition: service_healthy
-      rabbitmq-3:
-        condition: service_healthy
-    hostname: rabbitmq-proxy
-    ports:
-      - 1936:1936
+    user: rabbitmq

@@ -27,10 +27,17 @@ pub enum EventData {
         share_access: u32,
         open_path: String,
     },
-    FileOperation {
+    FileInfo {
         file_object: usize,
         extra_info: usize,
         info_class: u32,
+        file_path: String,
+    },
+    FileReadWrite {
+        offset: u64,
+        file_object: usize,
+        size: u32,
+        flags: u32,
         file_path: String,
     },
     Image {
@@ -78,7 +85,7 @@ pub enum EventData {
 impl EventData {
     pub fn event_type(&self) -> &'static str {
         match self {
-            Self::FileCreate { .. } | Self::FileOperation { .. } => "file",
+            Self::FileCreate { .. } | Self::FileInfo { .. } | Self::FileReadWrite { .. } => "file",
             Self::Image { .. } => "image",
             Self::Process { .. } => "process",
             Self::Registry { .. } => "registry",
@@ -220,7 +227,7 @@ impl CapturedEventRecord {
                 file.path = Some(vec![open_path.clone()]);
                 ecs.file = Some(file);
             }
-            EventData::FileOperation {
+            EventData::FileInfo {
                 file_object,
                 extra_info,
                 info_class,
@@ -238,7 +245,15 @@ impl CapturedEventRecord {
                     .to_string(),
                 ]);
                 event.category = Some(vec!["file".to_string()]);
-                event.type_ = Some(vec!["creation".to_string()]);
+                event.type_ = Some(vec![
+                    match self.event.opcode {
+                        69 | 71 => "change",
+                        70 => "deletion",
+                        74 | 75 => "access",
+                        _ => "info",
+                    }
+                    .to_string(),
+                ]);
 
                 let path = Path::new(file_path);
 
@@ -261,6 +276,43 @@ impl CapturedEventRecord {
                 } else {
                     None
                 };
+                ecs.file = Some(file);
+            }
+            EventData::FileReadWrite {
+                file_object,
+                file_path,
+                ..
+            } => {
+                event.action = Some(vec![
+                    match self.event.opcode {
+                        67 => "file-read",
+                        68 => "file-write",
+                        _ => "file-unknown",
+                    }
+                    .to_string(),
+                ]);
+                event.category = Some(vec!["file".to_string()]);
+                event.type_ = Some(vec![
+                    match self.event.opcode {
+                        67 => "access",
+                        68 => "change",
+                        _ => "info",
+                    }
+                    .to_string(),
+                ]);
+
+                let path = Path::new(file_path);
+
+                let mut file = ECS_File::new();
+                file.directory = path.parent().map(|s| vec![s.to_string_lossy().to_string()]);
+                file.extension = path
+                    .extension()
+                    .map(|s| vec![s.to_string_lossy().to_string()]);
+                file.inode = Some(vec![file_object.to_string()]);
+                file.name = path
+                    .file_name()
+                    .map(|s| vec![s.to_string_lossy().to_string()]);
+                file.path = Some(vec![file_path.clone()]);
                 ecs.file = Some(file);
             }
             EventData::Image { file_name, .. } => {
