@@ -111,7 +111,7 @@ impl ElasticsearchWrapper {
                 "events.windows-monitor-ecs",
             ))
             .body(serde_json::from_str::<serde_json::Value>(include_str!(
-                "../../config/ecs-template.json"
+                "../../services/elastic/ecs-template.json"
             ))?)
             .create(true)
             .send()

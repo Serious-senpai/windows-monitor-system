@@ -185,7 +185,10 @@ fn main() {
     let workspace_dir = wm_generated_dir.parent().unwrap();
     let out_dir = Path::new(&env_out_dir);
 
-    let source = workspace_dir.join("config").join("ecs-template.json");
+    let source = workspace_dir
+        .join("services")
+        .join("elastic")
+        .join("ecs-template.json");
     println!("cargo:rerun-if-changed={}", source.display());
 
     let input_file = fs::File::open(source).unwrap();

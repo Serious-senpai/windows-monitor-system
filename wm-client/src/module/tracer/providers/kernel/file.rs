@@ -80,7 +80,16 @@ impl ProviderWrapper for FileProviderWrapper {
                             ))?,
                         }
 
-                        Ok(None)
+                        if record.opcode() == 35 {
+                            Ok(Some(Event::new(
+                                record,
+                                EventData::FileDelete {
+                                    file_path: file_name,
+                                },
+                            )))
+                        } else {
+                            Ok(None)
+                        }
                     }
                     64 => {
                         let file_object = parser

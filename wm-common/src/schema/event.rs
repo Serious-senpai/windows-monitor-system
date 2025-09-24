@@ -10,7 +10,7 @@ use serde_json::json;
 use windows::Wdk::Storage::FileSystem::{FileAllocationInformation, FileEndOfFileInformation};
 use wm_generated::ecs::{
     ECS, ECS_Destination, ECS_Dll, ECS_Dll_CodeSignature, ECS_Event, ECS_File, ECS_Host,
-    ECS_Host_Cpu, ECS_Host_Os, ECS_Process, ECS_Registry, ECS_Source,
+    ECS_Host_Cpu, ECS_Host_Os, ECS_Process, ECS_Process_Thread, ECS_Registry, ECS_Source,
 };
 
 use crate::schema::ecs_converter::file_attributes;
@@ -40,10 +40,12 @@ pub enum EventData {
         flags: u32,
         file_path: String,
     },
+    FileDelete {
+        file_path: String,
+    },
     Image {
         image_base: usize,
         image_size: usize,
-        process_id: u32,
         image_checksum: u32,
         file_name: String,
     },
@@ -85,7 +87,10 @@ pub enum EventData {
 impl EventData {
     pub fn event_type(&self) -> &'static str {
         match self {
-            Self::FileCreate { .. } | Self::FileInfo { .. } | Self::FileReadWrite { .. } => "file",
+            Self::FileCreate { .. }
+            | Self::FileInfo { .. }
+            | Self::FileReadWrite { .. }
+            | Self::FileDelete { .. } => "file",
             Self::Image { .. } => "image",
             Self::Process { .. } => "process",
             Self::Registry { .. } => "registry",
@@ -194,14 +199,21 @@ impl CapturedEventRecord {
         event.original = Some(vec![self.serialize_to_string()]);
         event.provider = Some(vec!["kernel".to_string()]);
 
+        let mut thread = ECS_Process_Thread::new();
+        thread.id = Some(i64::from(self.event.thread_id));
+
+        let mut default_process = ECS_Process::new();
+        default_process.pid = Some(i64::from(self.event.process_id));
+        default_process.thread = Some(thread);
+
         let mut ecs = ECS::new(windows_timestamp(self.event.raw_timestamp));
         ecs.labels = Some(json!({"application": "windows-monitor"}));
+        ecs.process = Some(default_process);
         ecs.tags = Some(vec![self.event.data.event_type().into()]);
         ecs.host = Some(host);
 
         match &self.event.data {
             EventData::FileCreate {
-                file_object,
                 attributes,
                 share_access,
                 open_path,
@@ -219,7 +231,6 @@ impl CapturedEventRecord {
                 file.extension = path
                     .extension()
                     .map(|s| vec![s.to_string_lossy().to_string()]);
-                file.inode = Some(vec![file_object.to_string()]);
                 file.mode = Some(vec![format!("{share_access:o}")]);
                 file.name = path
                     .file_name()
@@ -228,10 +239,10 @@ impl CapturedEventRecord {
                 ecs.file = Some(file);
             }
             EventData::FileInfo {
-                file_object,
                 extra_info,
                 info_class,
                 file_path,
+                ..
             } => {
                 event.action = Some(vec![
                     match self.event.opcode {
@@ -262,7 +273,6 @@ impl CapturedEventRecord {
                 file.extension = path
                     .extension()
                     .map(|s| vec![s.to_string_lossy().to_string()]);
-                file.inode = Some(vec![file_object.to_string()]);
                 file.name = path
                     .file_name()
                     .map(|s| vec![s.to_string_lossy().to_string()]);
@@ -278,11 +288,7 @@ impl CapturedEventRecord {
                 };
                 ecs.file = Some(file);
             }
-            EventData::FileReadWrite {
-                file_object,
-                file_path,
-                ..
-            } => {
+            EventData::FileReadWrite { file_path, .. } => {
                 event.action = Some(vec![
                     match self.event.opcode {
                         67 => "file-read",
@@ -308,7 +314,24 @@ impl CapturedEventRecord {
                 file.extension = path
                     .extension()
                     .map(|s| vec![s.to_string_lossy().to_string()]);
-                file.inode = Some(vec![file_object.to_string()]);
+                file.name = path
+                    .file_name()
+                    .map(|s| vec![s.to_string_lossy().to_string()]);
+                file.path = Some(vec![file_path.clone()]);
+                ecs.file = Some(file);
+            }
+            EventData::FileDelete { file_path } => {
+                event.action = Some(vec!["file-delete".to_string()]);
+                event.category = Some(vec!["file".to_string()]);
+                event.type_ = Some(vec!["deletion".to_string()]);
+
+                let path = Path::new(file_path);
+
+                let mut file = ECS_File::new();
+                file.directory = path.parent().map(|s| vec![s.to_string_lossy().to_string()]);
+                file.extension = path
+                    .extension()
+                    .map(|s| vec![s.to_string_lossy().to_string()]);
                 file.name = path
                     .file_name()
                     .map(|s| vec![s.to_string_lossy().to_string()]);

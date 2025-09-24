@@ -30,9 +30,6 @@ impl ProviderWrapper for ImageProviderWrapper {
                 let image_size = parser
                     .try_parse::<Pointer>("ImageSize")
                     .map_err(RuntimeError::from)?;
-                let process_id = parser
-                    .try_parse::<u32>("ProcessId")
-                    .map_err(RuntimeError::from)?;
                 let image_checksum = parser
                     .try_parse::<u32>("ImageChecksum")
                     .map_err(RuntimeError::from)?;
@@ -45,7 +42,6 @@ impl ProviderWrapper for ImageProviderWrapper {
                     EventData::Image {
                         image_base: *image_base,
                         image_size: *image_size,
-                        process_id,
                         image_checksum,
                         file_name,
                     },
