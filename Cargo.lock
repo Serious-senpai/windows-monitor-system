@@ -1255,7 +1255,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "mock-provider"
+name = "mock-client"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "reqwest",
+ "tokio",
+ "wm-common",
+]
+
+[[package]]
+name = "mock-events"
 version = "0.1.0"
 dependencies = [
  "clap",

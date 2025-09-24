@@ -33,8 +33,8 @@ jobs:
       - name: Setup workspace
         run: scripts\setup.bat
 
-      - name: Build mock-provider
-        run: cargo build --release -p mock-provider --target ${{ matrix.target }}
+      - name: Build mock-events
+        run: cargo build --release -p mock-events --target ${{ matrix.target }}
 
       - name: Build wm-client
         run: cargo build --release -p wm-client --target ${{ matrix.target }}

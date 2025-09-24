@@ -5,7 +5,7 @@ use std::time::Duration;
 use std::{env, process};
 
 use clap::Parser;
-use mock_provider::cli::Arguments;
+use mock_events::cli::Arguments;
 use tokio::sync::SetOnce;
 use tokio::time::sleep;
 use tokio::{fs, signal};

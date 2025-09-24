@@ -1,0 +1,17 @@
+[package]
+name = "mock-client"
+version = "0.1.0"
+authors = ["Serious-senpai"]
+edition = "2024"
+description = "Windows Monitor agent mocking tool"
+repository = "https://github.com/Serious-senpai/windows-monitor"
+license = "GPL-2.0-or-later"
+
+[dependencies]
+clap = { workspace = true }
+reqwest = { workspace = true }
+tokio = { workspace = true }
+wm-common = { path = "../wm-common" }
+
+[lints]
+workspace = true
