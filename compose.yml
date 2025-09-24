@@ -9,7 +9,7 @@ x-rabbitmq-default: &rabbitmq-default
     test: rabbitmq-diagnostics -q status
     interval: 5s
     timeout: 5s
-    retries: 20
+    retries: 50
     start_period: 15s
   image: custom-rabbitmq
   mem_limit: 1gb
