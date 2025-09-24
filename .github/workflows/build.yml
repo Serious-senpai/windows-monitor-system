@@ -1,0 +1,52 @@
+name: Build
+
+on: [ push, pull_request ]
+
+env:
+  WINDOWS_MONITOR_PASSWORD: password
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Test build
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [aarch64-pc-windows-msvc, i686-pc-windows-msvc, x86_64-pc-windows-gnu, x86_64-pc-windows-msvc]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.89
+          cache: false
+
+      - name: Install target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Setup workspace
+        run: scripts\setup.bat
+
+      - name: Build mock-provider
+        run: cargo build --release -p mock-provider --target ${{ matrix.target }}
+
+      - name: Build wm-client
+        run: cargo build --release -p wm-client --target ${{ matrix.target }}
+
+      - name: Build wm-common
+        run: cargo build --release -p wm-common --target ${{ matrix.target }}
+
+      - name: Build wm-server
+        run: cargo build --release -p wm-server --target ${{ matrix.target }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-${{ matrix.target }}
+          path: .
