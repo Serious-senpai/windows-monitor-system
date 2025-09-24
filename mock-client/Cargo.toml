@@ -8,8 +8,10 @@ repository = "https://github.com/Serious-senpai/windows-monitor"
 license = "GPL-2.0-or-later"
 
 [dependencies]
+chrono = { workspace = true }
 clap = { workspace = true }
 reqwest = { workspace = true }
+rpassword = { workspace = true }
 tokio = { workspace = true }
 wm-common = { path = "../wm-common" }
 

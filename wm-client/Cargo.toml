@@ -20,7 +20,7 @@ lru = "^0.16.1"
 mimalloc = "^0.1.48"
 parking_lot = "^0.12.4"
 reqwest = { workspace = true }
-rpassword = "^7.4.0"
+rpassword = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sysinfo = "^0.37.0"

@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use reqwest::{Certificate, Identity};
+use reqwest::{Certificate, Client, Identity};
 use url::Url;
 
 use crate::configuration::Configuration;
@@ -9,7 +9,7 @@ use crate::configuration::Configuration;
 #[derive(Debug)]
 pub struct ApiClient {
     _base_url: Url,
-    _client: reqwest::Client,
+    _client: Client,
 }
 
 impl ApiClient {
@@ -49,23 +49,22 @@ impl ApiClient {
 #[derive(Debug)]
 pub struct HttpClient {
     _api: ApiClient,
-    _client: reqwest::Client,
+    _client: Client,
 }
 
 impl HttpClient {
-    const fn _client_certificate() -> &'static [u8] {
-        include_bytes!(concat!(env!("OUT_DIR"), "/client.pfx"))
-    }
-
     pub fn new(configuration: &Configuration, password: &str) -> Self {
-        let mut builder = reqwest::Client::builder()
+        let mut builder = Client::builder()
             .add_root_certificate(
                 Certificate::from_pem(include_bytes!("../../cert/server.pem"))
                     .expect("Failed to load server certificate"),
             )
             .identity(
-                Identity::from_pkcs12_der(Self::_client_certificate(), password)
-                    .expect("Failed to load client identity"),
+                Identity::from_pkcs12_der(
+                    include_bytes!(concat!(env!("OUT_DIR"), "/client.pfx")),
+                    password,
+                )
+                .expect("Failed to load client identity"),
             )
             .connect_timeout(Duration::from_secs(3));
 
@@ -88,7 +87,7 @@ impl HttpClient {
         &self._api
     }
 
-    pub fn client(&self) -> &reqwest::Client {
+    pub fn client(&self) -> &Client {
         &self._client
     }
 }

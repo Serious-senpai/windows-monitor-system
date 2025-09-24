@@ -25,13 +25,14 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: 1.89
+          target: ${{ matrix.target }}
           cache: false
-
-      - name: Install target
-        run: rustup target add ${{ matrix.target }}
 
       - name: Setup workspace
         run: scripts\setup.bat
+
+      - name: Build mock-client
+        run: cargo build --release -p mock-client --target ${{ matrix.target }}
 
       - name: Build mock-events
         run: cargo build --release -p mock-events --target ${{ matrix.target }}

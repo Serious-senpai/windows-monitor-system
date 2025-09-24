@@ -1258,8 +1258,10 @@ dependencies = [
 name = "mock-client"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "clap",
  "reqwest",
+ "rpassword",
  "tokio",
  "wm-common",
 ]
