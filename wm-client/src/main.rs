@@ -2,13 +2,16 @@ use std::env;
 use std::error::Error;
 use std::fs::File as BlockingFile;
 use std::io::{Write, stdout};
+use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_compression::tokio::write::ZstdDecoder;
 use clap::Parser;
 use config_file::FromConfigFile;
 use log::{debug, error, info, warn};
+use tokio::runtime::Builder;
 use tokio::{fs, io, signal, task};
 use windows::Win32::System::Services::SC_MANAGER_ALL_ACCESS;
 use windows_services::{Command, Service};
@@ -43,21 +46,43 @@ fn _read_password(prompt: &str) -> String {
     rpassword::read_password().expect("Unable to read password")
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+fn main() {
     let arguments = Arguments::parse();
-
-    // TODO: Protect these paths
     let executable_path = env::current_exe().expect("Failed to get current executable path");
     let app_directory = executable_path
         .parent()
         .expect("Failed to get application directory")
         .to_path_buf();
+    let configuration = Configuration::from_config_file(app_directory.join("client-config.yml"))
+        .expect("Failed to load configuration");
 
-    let configuration = Arc::new(
-        Configuration::from_config_file(app_directory.join("client-config.yml"))
-            .expect("Failed to load configuration"),
-    );
+    let rt = Builder::new_multi_thread()
+        .enable_all()
+        .thread_name_fn(|| {
+            static ID: AtomicUsize = AtomicUsize::new(0);
+            let id = ID.fetch_add(1, Ordering::SeqCst);
+            format!("tokio-runtime-worker-{id}")
+        })
+        .worker_threads(configuration.runtime_threads)
+        .build()
+        .expect("Failed to create Tokio runtime");
+
+    rt.block_on(async_main(
+        arguments,
+        executable_path,
+        app_directory,
+        configuration,
+    ))
+    .expect("Runtime completed with error");
+}
+
+async fn async_main(
+    arguments: Arguments,
+    executable_path: PathBuf,
+    app_directory: PathBuf,
+    configuration: Configuration,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let configuration = Arc::new(configuration);
 
     let log_directory = app_directory.join("logs");
     fs::create_dir_all(&log_directory)

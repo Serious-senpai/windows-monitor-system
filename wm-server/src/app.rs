@@ -80,22 +80,18 @@ impl App {
     }
 
     pub async fn elastic(&self) -> Option<Arc<ElasticsearchWrapper>> {
-        match self
-            ._elastic
+        self._elastic
             .get_or_try_init(async || {
                 match ElasticsearchWrapper::async_new(self._config.clone()).await {
                     Ok(inner) => Ok(Arc::new(inner)),
-                    Err(e) => Err(e),
+                    Err(e) => {
+                        error!("Unable to connect to Elasticsearch: {e}");
+                        Err(e)
+                    }
                 }
             })
             .await
-        {
-            Some(ptr) => Some(ptr.clone()),
-            None => {
-                error!("Unable to connect to Elasticsearch");
-                None
-            }
-        }
+            .cloned()
     }
 
     pub async fn run(self: &Arc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {

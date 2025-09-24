@@ -31,4 +31,5 @@ pub struct Configuration {
     pub message_queue_limit: usize,
     pub dns_resolver: HashMap<String, IpAddr>,
     pub event_post: EventPostSettings,
+    pub runtime_threads: usize,
 }

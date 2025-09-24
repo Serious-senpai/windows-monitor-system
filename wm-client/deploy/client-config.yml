@@ -5,6 +5,7 @@ trace_name:
   user: Windows Monitor User Tracer
 
 windows_credential_manager_key: Windows Monitor Client Certificate
+
 server: https://localhost:12110
 zstd_compression_level: 3
 system_refresh_interval_seconds: 3.0
@@ -18,3 +19,5 @@ dns_resolver:
 event_post:
   concurrency_limit: 3
   flush_limit: 102400
+
+runtime_threads: 4
