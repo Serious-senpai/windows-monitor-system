@@ -68,26 +68,17 @@ impl Backup {
     }
 
     pub async fn write_one(&mut self, data: &CapturedEventRecord) {
-        self._zstd.write_u8(b'[').await.unwrap();
         self._zstd
             .write_all(&data.serialize_to_vec())
             .await
             .unwrap();
-        self._zstd.write_all(b"]\n").await.unwrap();
+        self._zstd.write_u8(b'\n').await.unwrap();
     }
 
     pub async fn write_many(&mut self, data: &[CapturedEventRecord]) {
-        self._zstd.write_u8(b'[').await.unwrap();
-        for (i, record) in data.iter().enumerate() {
-            if i > 0 {
-                self._zstd.write_u8(b',').await.unwrap();
-            }
-            self._zstd
-                .write_all(&record.serialize_to_vec())
-                .await
-                .unwrap();
+        for record in data {
+            self.write_one(record).await;
         }
-        self._zstd.write_all(b"]\n").await.unwrap();
     }
 
     pub async fn write(&mut self, data: &[u8]) {

@@ -10,7 +10,7 @@ use http_body_util::BodyExt;
 use http_body_util::combinators::BoxBody;
 use hyper::body::{Bytes, Incoming};
 use hyper::{Method, Request, Response, StatusCode};
-use log::{debug, error};
+use log::error;
 use tokio::io::AsyncReadExt;
 use tokio_util::io::StreamReader;
 use wm_common::schema::event::CapturedEventRecord;
@@ -39,33 +39,40 @@ impl Service for TraceService {
                 .into_body()
                 .into_data_stream()
                 .map_err(io::Error::other);
-            let mut decompressor = ZstdDecoder::new(StreamReader::new(stream));
+            let decompressor = ZstdDecoder::new(StreamReader::new(stream));
+            let mut chained = decompressor.chain(b"\n".as_ref());
 
+            let mut body = vec![];
             let mut buffer = vec![];
-            if decompressor.read_to_end(&mut buffer).await.is_ok()
-                && let Ok(data) = serde_json::from_str::<Vec<CapturedEventRecord>>(
-                    &String::from_utf8_lossy(&buffer),
-                )
-            {
-                debug!(
-                    "Received {} uncompressed bytes of trace data ({} events)",
-                    buffer.len(),
-                    data.len()
-                );
+            while let Ok(byte) = chained.read_u8().await {
+                if byte == b'\n' {
+                    if buffer.is_empty() {
+                        continue;
+                    }
 
-                tokio::spawn(async move {
-                    if let Some(elastic) = app.elastic().await {
-                        let mut body = vec![];
-
-                        debug!("Pushing {} events to Elasticsearch", data.len());
-                        for event in data {
+                    match serde_json::from_slice::<CapturedEventRecord>(&buffer) {
+                        Ok(event) => {
                             body.extend_from_slice(b"{\"create\":{}}\n");
 
                             let ecs = event.to_ecs(peer.ip());
                             serde_json::to_writer(&mut body, &ecs).unwrap();
                             body.push(b'\n');
                         }
+                        Err(e) => {
+                            error!("Failed to parse backup events: {e}");
+                            return ResponseBuilder::default(StatusCode::BAD_REQUEST);
+                        }
+                    }
 
+                    buffer.clear();
+                } else {
+                    buffer.push(byte);
+                }
+            }
+
+            tokio::spawn(async move {
+                match app.elastic().await {
+                    Some(elastic) => {
                         if let Err(e) = elastic
                             .client()
                             .bulk(BulkParts::Index(&format!(
@@ -79,12 +86,13 @@ impl Service for TraceService {
                             error!("Elasticsearch API error: {e}");
                         }
                     }
-                });
+                    None => {
+                        // TODO: Handle lost events
+                    }
+                }
+            });
 
-                return ResponseBuilder::json(StatusCode::OK, TraceResponse {});
-            }
-
-            ResponseBuilder::default(StatusCode::BAD_REQUEST)
+            ResponseBuilder::json(StatusCode::OK, TraceResponse {})
         } else {
             ResponseBuilder::default(StatusCode::METHOD_NOT_ALLOWED)
         }

@@ -1,20 +1,17 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use chrono::Utc;
-use tokio::sync::mpsc::{Receiver, Sender, channel};
 use wm_common::schema::event::{CapturedEventRecord, Event, EventData};
 use wm_common::schema::sysinfo::{CPUInfo, MemoryInfo, OSInfo, SystemInfo};
 
 pub struct EventGenerator {
-    _sender: Sender<CapturedEventRecord>,
-    _receiver: Receiver<CapturedEventRecord>,
-    _pool: Vec<CapturedEventRecord>,
+    _pool: Vec<Vec<u8>>,
+    _index: AtomicUsize,
 }
 
 impl EventGenerator {
     pub fn new(pool_size: usize) -> Self {
-        let (sender, receiver) = channel(5);
-
         let mut pool = Vec::with_capacity(pool_size);
         for index in 0..pool_size {
             let system_info = Arc::new(SystemInfo::new(
@@ -106,13 +103,17 @@ impl EventGenerator {
                 captured: Utc::now(),
             };
 
-            pool.push(captured_event);
+            pool.push(captured_event.serialize_to_vec());
         }
 
         Self {
-            _sender: sender,
-            _receiver: receiver,
             _pool: pool,
+            _index: AtomicUsize::new(0),
         }
+    }
+
+    pub fn get_event(&self) -> &[u8] {
+        let index = self._index.fetch_add(1, Ordering::Relaxed);
+        &self._pool[index % self._pool.len()]
     }
 }

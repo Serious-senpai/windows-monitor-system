@@ -41,6 +41,7 @@ impl Service for BackupService {
             let decompressor = ZstdDecoder::new(StreamReader::new(stream));
             let mut chained = decompressor.chain(b"\n".as_ref());
 
+            let mut body = vec![];
             let mut buffer = vec![];
             while let Ok(byte) = chained.read_u8().await {
                 if byte == b'\n' {
@@ -48,39 +49,14 @@ impl Service for BackupService {
                         continue;
                     }
 
-                    match serde_json::from_slice::<Vec<CapturedEventRecord>>(&buffer) {
-                        Ok(events) => match app.elastic().await {
-                            Some(elastic) => {
-                                let mut body = vec![];
+                    match serde_json::from_slice::<CapturedEventRecord>(&buffer) {
+                        Ok(event) => {
+                            body.extend_from_slice(b"{\"create\":{}}\n");
 
-                                for event in events {
-                                    body.extend_from_slice(b"{\"create\":{}}\n");
-
-                                    let ecs = event.to_ecs(peer.ip());
-                                    serde_json::to_writer(&mut body, &ecs).unwrap();
-                                    body.push(b'\n');
-                                }
-
-                                if let Err(e) = elastic
-                                    .client()
-                                    .bulk(BulkParts::Index(&format!(
-                                        "events.windows-monitor-ecs-{}",
-                                        peer.ip()
-                                    )))
-                                    .body(vec![body])
-                                    .send()
-                                    .await
-                                {
-                                    error!("Elasticsearch API error: {e}");
-                                    return ResponseBuilder::default(
-                                        StatusCode::SERVICE_UNAVAILABLE,
-                                    );
-                                }
-                            }
-                            None => {
-                                return ResponseBuilder::default(StatusCode::SERVICE_UNAVAILABLE);
-                            }
-                        },
+                            let ecs = event.to_ecs(peer.ip());
+                            serde_json::to_writer(&mut body, &ecs).unwrap();
+                            body.push(b'\n');
+                        }
                         Err(e) => {
                             error!("Failed to parse backup events: {e}");
                             return ResponseBuilder::default(StatusCode::BAD_REQUEST);
@@ -90,6 +66,27 @@ impl Service for BackupService {
                     buffer.clear();
                 } else {
                     buffer.push(byte);
+                }
+            }
+
+            match app.elastic().await {
+                Some(elastic) => {
+                    if let Err(e) = elastic
+                        .client()
+                        .bulk(BulkParts::Index(&format!(
+                            "events.windows-monitor-ecs-{}",
+                            peer.ip()
+                        )))
+                        .body(vec![body])
+                        .send()
+                        .await
+                    {
+                        error!("Elasticsearch API error: {e}");
+                        return ResponseBuilder::default(StatusCode::SERVICE_UNAVAILABLE);
+                    }
+                }
+                None => {
+                    return ResponseBuilder::default(StatusCode::SERVICE_UNAVAILABLE);
                 }
             }
 

@@ -54,10 +54,9 @@ impl Connector {
 
         let mut uncompressed_buffer_pool = vec![];
         for _ in 0..configuration.event_post.concurrency_limit {
-            let mut buffer = Vec::with_capacity(configuration.event_post.flush_limit * 3 / 2);
-            buffer.push(b'[');
-
-            let payload = Arc::new(Mutex::new(buffer));
+            let payload = Arc::new(Mutex::new(Vec::with_capacity(
+                configuration.event_post.flush_limit * 3 / 2,
+            )));
             uncompressed_buffer_pool.push(payload);
         }
 
@@ -82,15 +81,10 @@ impl Connector {
         *self._errors_count.read().await == self._config.event_post.concurrency_limit
     }
 
-    /// Input must contain only the opening bracket `[` OR an incomplete JSON array with a trailing comma
-    /// e.g. `[1, 2, 3,`
     async fn _send_payload_utils(self: &Arc<Self>, mut raw_payload: OwnedMutexGuard<Vec<u8>>) {
-        if raw_payload.len() == 1 {
+        if raw_payload.is_empty() {
             return;
         }
-
-        raw_payload.pop(); // Remove trailing comma
-        raw_payload.push(b']');
 
         let mut write_to_backup = self._disconnected().await;
         if !write_to_backup {
@@ -157,11 +151,9 @@ impl Connector {
 
             let mut backup = self._backup.lock().await;
             backup.write(raw_payload.as_slice()).await;
-            backup.write(b"\n").await;
         }
 
         raw_payload.clear();
-        raw_payload.push(b'[');
     }
 }
 
@@ -231,9 +223,8 @@ impl Module for Connector {
                 if let Err(e) = event.serialize_to_writer(&mut *payload) {
                     error!("Failed to serialize {event:?}: {e}");
                     payload.clear();
-                    payload.push(b'[');
                 } else {
-                    payload.push(b',');
+                    payload.push(b'\n');
                     if payload.len() > self._config.event_post.flush_limit {
                         tokio::spawn(async move { ptr._send_payload_utils(payload).await });
                         self._uncompressed_buffer_pool_index.store(
