@@ -34,6 +34,7 @@ async fn request(
         .await
         .expect("Failed to compress data");
 
+    #[allow(clippy::redundant_pattern_matching)] // required to acquire semaphore
     if let Ok(_) = semaphore.acquire().await {
         match client
             .post(base_url.join("/trace").expect("Unable to build URL"))

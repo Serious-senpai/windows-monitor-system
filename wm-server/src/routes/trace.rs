@@ -59,7 +59,7 @@ impl Service for TraceService {
                             body.push(b'\n');
                         }
                         Err(e) => {
-                            error!("Failed to parse backup events: {e}");
+                            error!("Failed to parse trace events: {e}");
                             return ResponseBuilder::default(StatusCode::BAD_REQUEST);
                         }
                     }

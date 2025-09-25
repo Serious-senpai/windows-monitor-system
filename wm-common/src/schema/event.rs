@@ -10,7 +10,8 @@ use serde_json::json;
 use windows::Wdk::Storage::FileSystem::{FileAllocationInformation, FileEndOfFileInformation};
 use wm_generated::ecs::{
     ECS, ECS_Destination, ECS_Dll, ECS_Dll_CodeSignature, ECS_Event, ECS_File, ECS_Host,
-    ECS_Host_Cpu, ECS_Host_Os, ECS_Process, ECS_Process_Thread, ECS_Registry, ECS_Source,
+    ECS_Host_Cpu, ECS_Host_Os, ECS_Process, ECS_Process_Parent, ECS_Process_Thread, ECS_Registry,
+    ECS_Source,
 };
 
 use crate::schema::ecs_converter::file_attributes;
@@ -373,6 +374,7 @@ impl CapturedEventRecord {
             }
             EventData::Process {
                 process_id,
+                parent_id,
                 exit_status,
                 image_file_name,
                 command_line,
@@ -399,12 +401,16 @@ impl CapturedEventRecord {
                 let args = split_command_line(command_line);
                 let args_count = args.len();
 
+                let mut parent = ECS_Process_Parent::new();
+                parent.pid = Some(i64::from(*parent_id));
+
                 let mut process = ECS_Process::new();
                 process.args = Some(args);
                 process.args_count = args_count.try_into().ok();
                 process.command_line = Some(vec![command_line.clone()]);
                 process.executable = Some(vec![image_file_name.clone()]);
                 process.exit_code = Some(i64::from(*exit_status));
+                process.parent = Some(parent);
                 process.pid = Some(i64::from(*process_id));
                 ecs.process = Some(process);
             }
