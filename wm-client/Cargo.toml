@@ -28,7 +28,7 @@ tokio = { workspace = true }
 url = { workspace = true }
 windows = { workspace = true }
 windows-service-detector = "^0.1.0"
-windows-services = "^0.25.0"
+windows-services = "^0.26.0"
 wm-common = { path = "../wm-common" }
 
 [lints]
