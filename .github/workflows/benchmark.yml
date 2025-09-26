@@ -23,6 +23,9 @@ jobs:
           toolchain: 1.89
           cache: false
 
+      - name: Check processor information
+        run: Get-CimInstance Win32_Processor | Format-List *
+
       - name: Setup workspace
         run: scripts\setup.bat
 
