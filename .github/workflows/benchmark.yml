@@ -26,6 +26,9 @@ jobs:
       - name: Setup workspace
         run: scripts\setup.bat
 
+      - name: Build utility
+        run: cargo build --release -p utility
+
       - name: Build wm-client
         run: cargo build --release -p wm-client
 
