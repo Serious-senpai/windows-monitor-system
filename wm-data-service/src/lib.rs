@@ -2,7 +2,4 @@ pub mod app;
 pub mod cli;
 pub mod configuration;
 pub mod elastic;
-pub mod responses;
-pub mod routes;
 pub mod rules;
-pub mod utils;

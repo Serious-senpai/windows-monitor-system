@@ -181,8 +181,8 @@ fn main() {
     let env_cargo_manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let env_out_dir = env::var("OUT_DIR").unwrap();
 
-    let wm_generated_dir = Path::new(&env_cargo_manifest_dir);
-    let workspace_dir = wm_generated_dir.parent().unwrap();
+    let project_dir = Path::new(&env_cargo_manifest_dir);
+    let workspace_dir = project_dir.parent().unwrap();
     let out_dir = Path::new(&env_out_dir);
 
     let source = workspace_dir

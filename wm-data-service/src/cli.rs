@@ -8,13 +8,13 @@ use clap::{Parser, Subcommand, crate_description, crate_version};
 )]
 pub struct Arguments {
     #[command(subcommand)]
-    pub command: ServerAction,
+    pub command: ServiceAction,
 }
 
 #[derive(Debug, Subcommand)]
 #[clap(rename_all = "kebab_case")]
-pub enum ServerAction {
-    /// Start the Windows service or run in console mode if not running as a service
+pub enum ServiceAction {
+    /// Start consuming messages from RabbitMQ, processing and sending them to Elasticsearch
     Start,
 
     /// Update Elasticsearch detection rules from the remote repository

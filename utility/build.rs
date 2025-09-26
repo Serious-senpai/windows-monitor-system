@@ -4,7 +4,7 @@ use std::process::Command;
 
 #[allow(dead_code)]
 struct CommonPaths {
-    pub mock_client_dir: PathBuf,
+    pub project_dir: PathBuf,
     pub workspace_dir: PathBuf,
     pub exe_dir: PathBuf,
     pub deploy_dir: PathBuf,
@@ -18,15 +18,15 @@ impl CommonPaths {
         let env_profile = env::var("PROFILE").unwrap();
         let env_out_dir = env::var("OUT_DIR").unwrap();
 
-        let mock_client_dir = Path::new(&env_cargo_manifest_dir).to_path_buf();
-        let workspace_dir = mock_client_dir.parent().unwrap().to_path_buf();
+        let project_dir = Path::new(&env_cargo_manifest_dir).to_path_buf();
+        let workspace_dir = project_dir.parent().unwrap().to_path_buf();
         let exe_dir = workspace_dir.join("target").join(&env_profile);
-        let deploy_dir = mock_client_dir.join("deploy");
+        let deploy_dir = project_dir.join("deploy");
         let cert_dir = workspace_dir.join("cert");
         let out_dir = Path::new(&env_out_dir).to_path_buf();
 
         Self {
-            mock_client_dir,
+            project_dir,
             workspace_dir,
             exe_dir,
             deploy_dir,

@@ -22,7 +22,6 @@ use tokio_rustls::TlsAcceptor;
 use wm_common::once_cell_no_retry::OnceCellNoRetry;
 
 use crate::configuration::Configuration;
-use crate::elastic::ElasticsearchWrapper;
 use crate::responses::ResponseBuilder;
 use crate::routes::abc::Service;
 use crate::routes::backup::BackupService;
@@ -32,7 +31,7 @@ use crate::routes::trace::TraceService;
 pub struct App {
     _config: Arc<Configuration>,
     _services: HashMap<String, Arc<dyn Service>>,
-    _elastic: OnceCellNoRetry<Arc<ElasticsearchWrapper>>,
+    _rabbitmq: OnceCellNoRetry<Arc<lapin::Channel>>,
 }
 
 impl App {
@@ -56,9 +55,22 @@ impl App {
         rustls_pemfile::private_key(&mut reader).map(|key| key.unwrap())
     }
 
-    pub async fn async_new(
-        config: Arc<Configuration>,
-    ) -> Result<Self, Box<dyn Error + Send + Sync>> {
+    async fn _initialize_rabbitmq(
+        &self,
+    ) -> Result<Arc<lapin::Channel>, Box<dyn Error + Send + Sync>> {
+        Ok(Arc::new(
+            lapin::Connection::connect(
+                self._config.rabbitmq.host.as_str(),
+                lapin::ConnectionProperties::default()
+                    .with_executor(tokio_executor_trait::Tokio::current()),
+            )
+            .await?
+            .create_channel()
+            .await?,
+        ))
+    }
+
+    pub fn new(config: Arc<Configuration>) -> Arc<Self> {
         let mut services = HashMap::new();
 
         for service in [
@@ -69,26 +81,28 @@ impl App {
             services.insert(service.route().to_string(), service);
         }
 
-        let this = Self {
+        let this = Arc::new(Self {
             _config: config,
             _services: services,
-            _elastic: OnceCellNoRetry::new(),
-        };
-        let _ = this.elastic().await; // Pre-initialize Elasticsearch connection if possible
+            _rabbitmq: OnceCellNoRetry::new(),
+        });
 
-        Ok(this)
+        // Try initializing RabbitMQ connection
+        let this_cloned = this.clone();
+        tokio::spawn(async move {
+            let _ = this_cloned.rabbitmq().await;
+        });
+
+        this
     }
 
-    pub async fn elastic(&self) -> Option<Arc<ElasticsearchWrapper>> {
-        self._elastic
-            .get_or_try_init(async || {
-                match ElasticsearchWrapper::async_new(self._config.clone()).await {
-                    Ok(inner) => Ok(Arc::new(inner)),
-                    Err(e) => {
-                        error!("Unable to connect to Elasticsearch: {e}");
-                        Err(e)
-                    }
-                }
+    pub async fn rabbitmq(&self) -> Option<Arc<lapin::Channel>> {
+        self._rabbitmq
+            .get_or_try_init(|| async {
+                self._initialize_rabbitmq().await.map_err(|e| {
+                    error!("Unable to connect to RabbitMQ: {e}");
+                    e
+                })
             })
             .await
             .cloned()

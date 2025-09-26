@@ -42,7 +42,7 @@ jobs:
         shell: cmd
         run: |
           target\release\utility use-default-password "Windows Monitor Client Certificate"
-          start target\release\wm-server start
+          start target\release\wm-api-service start
           start target\release\wm-client start
           waitfor SomethingThatIsNeverHappening /t 600 2>nul || type nul>nul
           tasklist

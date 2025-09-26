@@ -12,10 +12,10 @@ use log::{debug, error, info};
 use reqwest::multipart::{Form, Part};
 use tokio::fs;
 use wm_common::logger::initialize_logger;
-use wm_server::app::App;
-use wm_server::cli::{Arguments, ServerAction};
-use wm_server::configuration::Configuration;
-use wm_server::rules;
+use wm_data_service::app::App;
+use wm_data_service::cli::{Arguments, ServiceAction};
+use wm_data_service::configuration::Configuration;
+use wm_data_service::rules;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -28,7 +28,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .to_path_buf();
 
     let configuration = Arc::new(
-        Configuration::from_config_file(app_directory.join("server-config.yml"))
+        Configuration::from_config_file(app_directory.join("data-service-config.yml"))
             .expect("Failed to load configuration"),
     );
 
@@ -48,12 +48,12 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     )?;
     debug!("Initialized logger");
 
-    let app = Arc::new(App::async_new(configuration).await?);
+    let app = App::new(configuration.clone()).expect("Failed to initialize application");
     match arguments.command {
-        ServerAction::Start => {
+        ServiceAction::Start => {
             app.run().await?;
         }
-        ServerAction::UpdateRules => {
+        ServiceAction::UpdateRules => {
             let elastic = app
                 .elastic()
                 .await
@@ -86,7 +86,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 }
             }
         }
-        ServerAction::RequiredFields => {
+        ServiceAction::RequiredFields => {
             let mut fields = HashSet::new();
             let pattern = Regex::new(
                 r"(?<![\.\w])(?:@timestamp|agent|client|cloud|container|data_stream|destination|device|dll|dns|ecs|email|error|event|faas|file|gen_ai|group|host|http|labels|log|message|network|observer|orchestrator|organization|package|process|registry|related|rule|server|service|source|span|tags|threat|tls|trace|transaction|url|user|user_agent|volume|vulnerability)(?:\.[a-z_]+)+",

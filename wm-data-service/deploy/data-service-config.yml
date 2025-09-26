@@ -1,7 +1,7 @@
-port: 12110
 log_level: Info
-certificate: cert\server.pem
-private_key: cert\server.rsa
+
+rabbitmq:
+  host: amqp://localhost:5672
 
 elasticsearch:
   host: http://localhost:9200

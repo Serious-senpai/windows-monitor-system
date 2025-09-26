@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 if /i "%~1" == "create" (
-    set targets=wm-client wm-server
+    set targets=wm-client wm-api-service
     set counters=
     for %%t in (!targets!) do (
         set counters=!counters! "\Process(%%t)\%% Processor Time"

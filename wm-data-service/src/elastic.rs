@@ -36,14 +36,11 @@ pub struct KibanaClient {
 }
 
 impl KibanaClient {
-    pub async fn async_new(
-        config: Arc<Configuration>,
-    ) -> Result<Self, Box<dyn Error + Send + Sync>> {
-        let client = reqwest::Client::new();
-        Ok(Self {
+    pub fn new(config: Arc<Configuration>) -> Self {
+        Self {
             _config: config,
-            _http: client,
-        })
+            _http: reqwest::Client::new(),
+        }
     }
 
     pub fn get(&self, endpoint: &str) -> reqwest::RequestBuilder {
@@ -93,7 +90,7 @@ pub struct ElasticsearchWrapper {
 impl ElasticsearchWrapper {
     pub async fn async_new(
         config: Arc<Configuration>,
-    ) -> Result<Self, Box<dyn Error + Send + Sync>> {
+    ) -> Result<Arc<Self>, Box<dyn Error + Send + Sync>> {
         let transport = Transport::single_node(config.elasticsearch.host.as_str())?;
         transport.set_auth(Credentials::Basic(
             config.elasticsearch.username.clone(),
@@ -101,7 +98,7 @@ impl ElasticsearchWrapper {
         ));
         let elastic = Self {
             _client: Elasticsearch::new(transport),
-            _kibana: KibanaClient::async_new(config.clone()).await?,
+            _kibana: KibanaClient::new(config.clone()),
         };
 
         let response = elastic
@@ -118,7 +115,7 @@ impl ElasticsearchWrapper {
             .await?;
         _log_error(response).await;
 
-        Ok(elastic)
+        Ok(Arc::new(elastic))
     }
 
     pub fn client(&self) -> &Elasticsearch {

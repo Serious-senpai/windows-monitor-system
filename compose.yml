@@ -28,8 +28,6 @@ services:
     restart: unless-stopped
 
   rabbitmq:
-    build:
-      dockerfile: services/rabbitmq/Dockerfile
     container_name: rabbitmq
     cpus: 1.0
     environment:
@@ -41,8 +39,9 @@ services:
       retries: 50
       start_period: 15s
     hostname: rabbitmq
-    image: custom-rabbitmq
+    image: rabbitmq:4.0-management-alpine
     mem_limit: 1gb
     ports:
+      - 5672:5672
       - 15672:15672
     user: rabbitmq
