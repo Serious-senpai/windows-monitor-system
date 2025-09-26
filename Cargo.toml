@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["mock-client", "mock-events", "wm-client", "wm-common", "wm-generated", "wm-server"]
+members = ["utility", "wm-client", "wm-common", "wm-generated", "wm-server"]
 
 [workspace.dependencies]
 async-compression = { version = "^0.4.30", features = ["tokio", "zstd"] }
