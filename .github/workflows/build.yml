@@ -31,11 +31,8 @@ jobs:
       - name: Setup workspace
         run: scripts\setup.bat
 
-      - name: Build mock-client
-        run: cargo build --release -p mock-client --target ${{ matrix.target }}
-
-      - name: Build mock-events
-        run: cargo build --release -p mock-events --target ${{ matrix.target }}
+      - name: Build utility
+        run: cargo build --release -p utility --target ${{ matrix.target }}
 
       - name: Build wm-client
         run: cargo build --release -p wm-client --target ${{ matrix.target }}
@@ -50,4 +47,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.target }}
-          path: .
+          path: target
