@@ -53,4 +53,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: benchmark
-          path: Benchmark
+          path: |
+            Benchmark
+            target\release\logs

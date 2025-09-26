@@ -4,7 +4,7 @@ setlocal enabledelayedexpansion
 if /i "%~1" == "create" (
     set targets=wm-client wm-server
     set counters=
-    for %%t in (%targets%) do (
+    for %%t in (!targets!) do (
         set counters=!counters! "\Process(%%t)\%% Processor Time"
         set counters=!counters! "\Process(%%t)\Elapsed Time"
         set counters=!counters! "\Process(%%t)\IO Data Bytes/sec"
@@ -35,7 +35,7 @@ goto :eof
 
 :create-counter
 echo Creating performance counter log %1, output as %2
-logman create counter %1 -o "%cd%\Benchmark" -c %counters% -si 00:00:01 -f %2
+logman create counter %1 -o "%cd%\Benchmark" -c !counters! -si 00:00:01 -f %2
 logman query %1
 goto :eof
 
