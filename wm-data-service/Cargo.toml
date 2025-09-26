@@ -10,7 +10,7 @@ license = "GPL-2.0-or-later"
 [dependencies]
 clap = { workspace = true }
 config-file = { workspace = true }
-elasticsearch = "^9.0.0-alpha.1"
+elasticsearch = "^9.1.0-alpha.1"
 fancy-regex = { workspace = true }
 futures-lite = "^2.6.1"
 lapin = { workspace = true }
