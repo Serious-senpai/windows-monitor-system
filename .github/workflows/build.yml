@@ -49,8 +49,23 @@ jobs:
       - name: Build wm-generated
         run: cargo build --release -p wm-generated --target ${{ matrix.target }}
 
+      - name: Package executables
+        run: |
+          mkdir packages packages\utility packages\wm-api-service packages\wm-client packages\wm-data-service
+
+          copy target\${{ matrix.target }}\release\utility.exe packages\utility\
+
+          copy target\${{ matrix.target }}\release\wm-api-service.exe packages\wm-api-service\
+          copy target\release\api-service-config.yml packages\wm-api-service\
+
+          copy target\${{ matrix.target }}\release\wm-client.exe packages\wm-client\
+          copy target\release\client-config.yml packages\wm-client\
+
+          copy target\${{ matrix.target }}\release\wm-data-service.exe packages\wm-data-service\
+          copy target\release\data-service-config.yml packages\wm-data-service\
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.target }}
-          path: target
+          path: packages
