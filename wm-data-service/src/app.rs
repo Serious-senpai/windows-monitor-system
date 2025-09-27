@@ -84,15 +84,12 @@ impl App {
     }
 
     pub async fn run(self: &Arc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let rabbitmq = loop {
-            let this = self.clone();
-            tokio::select! {
-                Some(rabbitmq) = this.rabbitmq() => break Some(rabbitmq),
-                _ = signal::ctrl_c() => {
-                    info!("Received Ctrl+C signal");
-                    break None;
-                }
-            };
+        let rabbitmq = tokio::select! {
+            Some(rabbitmq) = self.rabbitmq() => Some(rabbitmq),
+            _ = signal::ctrl_c() => {
+                info!("Received Ctrl+C signal");
+                None
+            }
         };
 
         if let Some(rabbitmq) = rabbitmq {

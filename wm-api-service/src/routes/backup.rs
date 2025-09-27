@@ -57,7 +57,7 @@ impl Service for BackupService {
                                 IpAddr::V6(ipv6) => ipv6.to_bits(),
                             };
                             buffer.extend_from_slice(&ip_native_order.to_be_bytes());
-                            buffer.push(matches!(peer.ip(), IpAddr::V4(_)) as u8);
+                            buffer.push(u8::from(matches!(peer.ip(), IpAddr::V4(_))));
 
                             if let Err(e) = rabbitmq
                                 .basic_publish("", "events", options, &buffer, properties.clone())
