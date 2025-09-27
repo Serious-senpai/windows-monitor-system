@@ -50,6 +50,7 @@ jobs:
         run: cargo build --release -p wm-generated --target ${{ matrix.target }}
 
       - name: Package executables
+        shell: cmd
         run: |
           mkdir packages packages\utility packages\wm-api-service packages\wm-client packages\wm-data-service
 
