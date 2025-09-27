@@ -1,17 +1,16 @@
 use std::error::Error;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::sync::Arc;
 
 use futures_lite::stream::StreamExt;
-use lapin::options::BasicConsumeOptions;
+use lapin::options::{BasicConsumeOptions, QueueDeclareOptions};
 use lapin::types::FieldTable;
 use log::{error, info};
 use tokio::signal;
 use wm_common::once_cell_no_retry::OnceCellNoRetry;
-use wm_common::schema::event::CapturedEventRecord;
 
 use crate::configuration::Configuration;
 use crate::elastic::ElasticsearchWrapper;
+use crate::forwarder::MessageForwarder;
 
 pub struct App {
     _config: Arc<Configuration>,
@@ -57,6 +56,10 @@ impl App {
         Ok(this)
     }
 
+    pub fn config(&self) -> &Configuration {
+        &self._config
+    }
+
     pub async fn rabbitmq(&self) -> Option<Arc<lapin::Channel>> {
         self._rabbitmq
             .get_or_try_init(|| async {
@@ -93,16 +96,24 @@ impl App {
         };
 
         if let Some(rabbitmq) = rabbitmq {
+            rabbitmq
+                .queue_declare(
+                    "events",
+                    QueueDeclareOptions::default(),
+                    FieldTable::default(),
+                )
+                .await?;
+
             let mut consumer = rabbitmq
                 .basic_consume(
                     "events",
-                    "",
+                    "data-service-consumer",
                     BasicConsumeOptions::default(),
                     FieldTable::default(),
                 )
                 .await?;
 
-            let mut body = vec![];
+            let mut forwarder = MessageForwarder::new(self);
             loop {
                 let delivery = tokio::select! {
                     _ = signal::ctrl_c() => {
@@ -114,33 +125,7 @@ impl App {
 
                 match delivery {
                     Ok(delivery) => {
-                        let mut data = delivery.data;
-                        if let Some(is_ipv4) = data.pop() {
-                            let ip_native_order = u128::from_be_bytes(
-                                data[data.len() - 16..]
-                                    .try_into()
-                                    .expect("Slice does not have 16 bytes"),
-                            );
-                            data.truncate(data.len() - 16);
-
-                            let ip = if is_ipv4 != 0 {
-                                IpAddr::V4(Ipv4Addr::from(
-                                    u32::try_from(ip_native_order & 0xFFFFFFFF)
-                                        .expect("Cannot convert to u32"),
-                                ))
-                            } else {
-                                IpAddr::V6(Ipv6Addr::from(ip_native_order))
-                            };
-
-                            if let Ok(event) = serde_json::from_slice::<CapturedEventRecord>(&data)
-                            {
-                                body.extend_from_slice(b"{\"create\":{}}\n");
-
-                                let ecs = event.to_ecs(ip);
-                                serde_json::to_writer(&mut body, &ecs).unwrap();
-                                body.push(b'\n');
-                            }
-                        }
+                        forwarder.process(delivery).await;
                     }
                     Err(e) => {
                         error!("RabbitMQ error: {e}");

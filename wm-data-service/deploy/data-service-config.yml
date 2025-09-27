@@ -1,5 +1,8 @@
 log_level: Info
 
+event_post:
+  flush_limit: 102400
+
 rabbitmq:
   host: amqp://localhost:5672
 

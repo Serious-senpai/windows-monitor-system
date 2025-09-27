@@ -1,5 +1,5 @@
 use std::io;
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use async_compression::tokio::bufread::ZstdDecoder;
@@ -18,6 +18,7 @@ use tokio_util::io::StreamReader;
 use crate::app::App;
 use crate::responses::ResponseBuilder;
 use crate::routes::abc::Service;
+use crate::utils::append_client_ip;
 
 pub struct BackupService;
 
@@ -52,12 +53,7 @@ impl Service for BackupService {
                                 continue;
                             }
 
-                            let ip_native_order = match peer.ip() {
-                                IpAddr::V4(ipv4) => u128::from(ipv4.to_bits()),
-                                IpAddr::V6(ipv6) => ipv6.to_bits(),
-                            };
-                            buffer.extend_from_slice(&ip_native_order.to_be_bytes());
-                            buffer.push(u8::from(matches!(peer.ip(), IpAddr::V4(_))));
+                            append_client_ip(&mut buffer, peer.ip());
 
                             if let Err(e) = rabbitmq
                                 .basic_publish("", "events", options, &buffer, properties.clone())

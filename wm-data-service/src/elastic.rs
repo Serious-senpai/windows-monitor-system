@@ -5,7 +5,7 @@ use elasticsearch::Elasticsearch;
 use elasticsearch::auth::Credentials;
 use elasticsearch::http::response::Response;
 use elasticsearch::http::transport::Transport;
-use elasticsearch::indices::IndicesPutIndexTemplateParts;
+use elasticsearch::indices::IndicesCreateParts;
 use log::{debug, warn};
 
 use crate::configuration::Configuration;
@@ -104,13 +104,10 @@ impl ElasticsearchWrapper {
         let response = elastic
             ._client
             .indices()
-            .put_index_template(IndicesPutIndexTemplateParts::Name(
-                "events.windows-monitor-ecs",
-            ))
+            .create(IndicesCreateParts::Index("events.windows-monitor-ecs"))
             .body(serde_json::from_str::<serde_json::Value>(include_str!(
                 "../../services/elastic/ecs-template.json"
             ))?)
-            .create(true)
             .send()
             .await?;
         _log_error(response).await;

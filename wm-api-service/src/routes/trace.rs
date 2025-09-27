@@ -19,6 +19,7 @@ use wm_common::schema::responses::TraceResponse;
 use crate::app::App;
 use crate::responses::ResponseBuilder;
 use crate::routes::abc::Service;
+use crate::utils::append_client_ip;
 
 pub struct TraceService;
 
@@ -53,6 +54,8 @@ impl Service for TraceService {
                                 if buffer.is_empty() {
                                     continue;
                                 }
+
+                                append_client_ip(&mut buffer, peer.ip());
 
                                 if let Err(e) = rabbitmq
                                     .basic_publish(

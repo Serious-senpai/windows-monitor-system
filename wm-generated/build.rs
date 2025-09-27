@@ -212,7 +212,7 @@ fn main() {
         .write_all(
             process_object(
                 "ECS".into(),
-                &data["template"]["mappings"],
+                &data["mappings"],
                 &rust_identifier,
                 &mut qualified_path,
             )

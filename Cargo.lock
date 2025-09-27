@@ -4131,7 +4131,6 @@ dependencies = [
  "tokio-executor-trait 3.1.0",
  "tokio-rustls",
  "tokio-util",
- "toml 0.9.7",
  "url",
  "wm-common",
 ]
