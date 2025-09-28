@@ -12,6 +12,7 @@ fancy-regex = "^0.16.1"
 ferrisetw = "^1.2.0"
 lapin = "^3.7.0"
 log = "^0.4.27"
+mimalloc = "^0.1.48"
 reqwest = { version = "^0.12.23", features = ["json", "multipart", "native-tls", "stream"] }
 rpassword = "^7.4.0"
 serde = { version = "^1.0.219", features = ["derive", "rc"] }

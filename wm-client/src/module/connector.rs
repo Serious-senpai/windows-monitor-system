@@ -36,10 +36,14 @@ pub struct Connector {
 
     _uncompressed_buffer_pool: Vec<Arc<Mutex<Vec<u8>>>>,
     _uncompressed_buffer_pool_index: AtomicUsize,
-    _compressed_buffer_pool: Arc<Pool<BytesMut>>,
+    _compressed_buffer_pool: Arc<Pool<Option<BytesMut>>>,
 }
 
 impl Connector {
+    fn _new_compressed_buffer() -> BytesMut {
+        BytesMut::with_capacity(8192) // these buffers are for compressed data, so we cannot predict them anyway (let's start with 8KB!)
+    }
+
     pub fn new(
         configuration: Arc<Configuration>,
         receiver: mpsc::Receiver<Arc<CapturedEventRecord>>,
@@ -72,7 +76,7 @@ impl Connector {
             _uncompressed_buffer_pool: uncompressed_buffer_pool,
             _uncompressed_buffer_pool_index: AtomicUsize::new(0),
             _compressed_buffer_pool: Arc::new(Pool::new(concurrency_limit, |_| {
-                BytesMut::with_capacity(8192) // these buffers are for compressed data, so we cannot predict them anyway (let's start with 8KB!)
+                Some(Self::_new_compressed_buffer())
             })),
         })
     }
@@ -92,48 +96,76 @@ impl Connector {
                 raw_payload.as_slice(),
                 Level::Precise(self._config.zstd_compression_level),
             );
+
             let mut buffer = self._compressed_buffer_pool.acquire().await;
-            buffer.clear();
-
-            let success = if let Err(e) = compressor.read_buf(&mut *buffer).await {
-                error!("Unable to compress data: {e}");
-                false
-            } else {
-                debug!(
-                    "Sending {} bytes of uncompressed data (compressed to {} bytes)",
-                    raw_payload.len(),
-                    buffer.len(),
-                );
-
-                match self
-                    ._http
-                    .api()
-                    .post("/trace")
-                    .body(buffer.clone().freeze())
-                    .send()
-                    .await
-                {
-                    Ok(response) => {
-                        response.status() == 200
-                            && match response.json::<TraceResponse>().await {
-                                Ok(data) => {
-                                    debug!("Server response {data:?}");
-                                    true
-                                }
-                                Err(e) => {
-                                    error!("Invalid server JSON response: {e}");
-                                    false
-                                }
-                            }
-                    }
-                    Err(e) => {
-                        error!(
-                            "Failed to send trace event to server: {e}, writing to backup instead"
-                        );
-                        false
-                    }
+            let mut compressed = match buffer.take() {
+                Some(b) => b,
+                None => {
+                    error!(
+                        "Cannot get a buffer from pool for compression. This should never happen."
+                    );
+                    Self::_new_compressed_buffer()
                 }
             };
+
+            compressed.clear();
+
+            let (compressed, success) = match compressor.read_buf(&mut compressed).await {
+                Ok(_) => {
+                    debug!(
+                        "Sending {} bytes of uncompressed data (compressed to {} bytes)",
+                        raw_payload.len(),
+                        compressed.len(),
+                    );
+
+                    let compressed = compressed.freeze();
+                    let success = match self
+                        ._http
+                        .api()
+                        .post("/trace")
+                        .body(compressed.clone())
+                        .send()
+                        .await
+                    {
+                        Ok(response) => {
+                            response.status() == 200
+                                && match response.json::<TraceResponse>().await {
+                                    Ok(data) => {
+                                        debug!("Server response {data:?}");
+                                        true
+                                    }
+                                    Err(e) => {
+                                        error!("Invalid server JSON response: {e}");
+                                        false
+                                    }
+                                }
+                        }
+                        Err(e) => {
+                            error!(
+                                "Failed to send trace event to server: {e}, writing to backup instead"
+                            );
+                            false
+                        }
+                    };
+
+                    let compressed = match compressed.try_into_mut() {
+                        Ok(b) => b,
+                        Err(_) => {
+                            error!(
+                                "Cannot recover mutable buffer to pool. This should never happen."
+                            );
+                            Self::_new_compressed_buffer()
+                        }
+                    };
+                    (compressed, success)
+                }
+                Err(e) => {
+                    error!("Unable to compress data: {e}");
+                    (compressed, false)
+                }
+            };
+
+            *buffer = Some(compressed);
 
             if !success {
                 let mut errors_count = self._errors_count.write().await;

@@ -15,6 +15,7 @@ fancy-regex = { workspace = true }
 futures-lite = "^2.6.1"
 lapin = { workspace = true }
 log = { workspace = true }
+mimalloc = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

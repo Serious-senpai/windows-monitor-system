@@ -11,6 +11,7 @@ use async_compression::tokio::write::ZstdDecoder;
 use clap::Parser;
 use config_file::FromConfigFile;
 use log::{debug, error, info, warn};
+use mimalloc::MiMalloc;
 use tokio::runtime::Builder;
 use tokio::{fs, io, signal, task};
 use windows::Win32::System::Services::SC_MANAGER_ALL_ACCESS;
@@ -24,6 +25,9 @@ use wm_common::error::RuntimeError;
 use wm_common::logger::initialize_logger;
 use wm_common::service::service_manager::ServiceManager;
 use wm_common::service::status::ServiceState;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 fn _read_wcm_password(config: &Configuration) -> String {
     let data = CredentialManager::read(&format!("{}\0", config.windows_credential_manager_key))

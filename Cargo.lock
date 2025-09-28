@@ -4189,6 +4189,7 @@ dependencies = [
  "futures-lite",
  "lapin",
  "log",
+ "mimalloc",
  "reqwest",
  "serde",
  "serde_json",

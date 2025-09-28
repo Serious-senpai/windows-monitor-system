@@ -9,6 +9,7 @@ use clap::Parser;
 use config_file::FromConfigFile;
 use fancy_regex::Regex;
 use log::{debug, error, info};
+use mimalloc::MiMalloc;
 use reqwest::multipart::{Form, Part};
 use tokio::fs;
 use wm_common::logger::initialize_logger;
@@ -16,6 +17,9 @@ use wm_data_service::app::App;
 use wm_data_service::cli::{Arguments, ServiceAction};
 use wm_data_service::configuration::Configuration;
 use wm_data_service::rules;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
