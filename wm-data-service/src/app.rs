@@ -1,11 +1,13 @@
 use std::error::Error;
 use std::sync::Arc;
+use std::time::Duration;
 
 use futures_lite::stream::StreamExt;
 use lapin::options::{BasicConsumeOptions, BasicQosOptions, QueueDeclareOptions};
 use lapin::types::FieldTable;
 use log::{error, info};
 use tokio::signal;
+use tokio::time::sleep;
 use wm_common::once_cell_no_retry::OnceCellNoRetry;
 
 use crate::configuration::Configuration;
@@ -141,10 +143,11 @@ impl App {
                         info!("Received Ctrl+C signal");
                         break;
                     }
-                    Some(delivery) = consumer.next() => delivery,
+                    Some(delivery) = consumer.next() => Some(delivery),
+                    _ = sleep(Duration::from_secs(1)) => None,
                 };
 
-                match delivery {
+                match delivery.transpose() {
                     Ok(delivery) => {
                         forwarder.process(delivery).await;
                     }
