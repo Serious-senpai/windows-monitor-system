@@ -2,7 +2,7 @@ use std::error::Error;
 use std::sync::Arc;
 
 use futures_lite::stream::StreamExt;
-use lapin::options::{BasicConsumeOptions, QueueDeclareOptions};
+use lapin::options::{BasicConsumeOptions, BasicQosOptions, QueueDeclareOptions};
 use lapin::types::FieldTable;
 use log::{error, info};
 use tokio::signal;
@@ -96,13 +96,33 @@ impl App {
         };
 
         if let Some(rabbitmq) = rabbitmq {
+            info!("Connected to RabbitMQ");
+
             rabbitmq
                 .queue_declare(
                     "events",
-                    QueueDeclareOptions::default(),
+                    QueueDeclareOptions {
+                        passive: false,
+                        durable: true,
+                        exclusive: false,
+                        auto_delete: false,
+                        nowait: false,
+                    },
                     FieldTable::default(),
                 )
                 .await?;
+            info!("Declared events RabbitMQ queue");
+
+            rabbitmq
+                .basic_qos(
+                    self._config.throughput.prefetch_count,
+                    BasicQosOptions::default(),
+                )
+                .await?;
+            info!(
+                "Set RabbitMQ prefetch count to {}",
+                self._config.throughput.prefetch_count
+            );
 
             let mut consumer = rabbitmq
                 .basic_consume(
@@ -112,6 +132,7 @@ impl App {
                     FieldTable::default(),
                 )
                 .await?;
+            info!("Started consuming from events queue");
 
             let mut forwarder = MessageForwarder::new(self);
             loop {

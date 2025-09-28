@@ -59,7 +59,9 @@ impl Service for BackupService {
                                 .basic_publish("", "events", options, &buffer, properties.clone())
                                 .await
                             {
-                                error!("RabbitMQ error: {e}");
+                                error!(
+                                    "RabbitMQ error when backing up, events may have been lost: {e}"
+                                );
                                 return ResponseBuilder::default(StatusCode::SERVICE_UNAVAILABLE);
                             }
 

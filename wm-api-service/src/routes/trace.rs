@@ -67,7 +67,9 @@ impl Service for TraceService {
                                     )
                                     .await
                                 {
-                                    error!("RabbitMQ error: {e}");
+                                    error!(
+                                        "RabbitMQ error when tracing, events may have been lost: {e}"
+                                    );
                                 }
 
                                 buffer.clear();

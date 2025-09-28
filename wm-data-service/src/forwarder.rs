@@ -6,7 +6,7 @@ use elasticsearch::BulkParts;
 use lapin::acker::Acker;
 use lapin::message::Delivery;
 use lapin::options::{BasicAckOptions, BasicNackOptions};
-use log::error;
+use log::{debug, error};
 use wm_common::schema::event::CapturedEventRecord;
 
 use crate::app::App;
@@ -22,17 +22,19 @@ impl MessageForwarder {
     pub fn new(app: &Arc<App>) -> Self {
         Self {
             _app: Arc::downgrade(app),
-            _body: Vec::with_capacity(app.config().event_post.flush_limit * 3 / 2),
+            _body: Vec::with_capacity(app.config().throughput.flush_limit * 3 / 2),
         }
     }
 
     async fn _ack(acker: &Acker) {
+        debug!("Sending ACK to RabbitMQ");
         if let Err(e) = acker.ack(BasicAckOptions { multiple: true }).await {
             error!("Failed to send ACK to RabbitMQ: {e}");
         }
     }
 
     async fn _nack(acker: &Acker) {
+        debug!("Sending NACK to RabbitMQ");
         if let Err(e) = acker
             .nack(BasicNackOptions {
                 multiple: true,
@@ -69,10 +71,12 @@ impl MessageForwarder {
                 match serde_json::from_slice::<CapturedEventRecord>(&data) {
                     Ok(event) => {
                         self._body.extend_from_slice(b"{\"create\":{}}\n");
+
                         let ecs = event.to_ecs(ip);
                         serde_json::to_writer(&mut self._body, &ecs).unwrap();
                         self._body.push(b'\n');
-                        if self._body.len() > app.config().event_post.flush_limit {
+
+                        if self._body.len() >= app.config().throughput.flush_limit {
                             let app = app.clone();
 
                             let mut moved_body = Vec::with_capacity(self._body.capacity());

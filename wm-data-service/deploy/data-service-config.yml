@@ -1,6 +1,7 @@
 log_level: Info
 
-event_post:
+throughput:
+  prefetch_count: 100
   flush_limit: 102400
 
 rabbitmq:
