@@ -52,7 +52,8 @@ jobs:
       - name: Package executables
         shell: cmd
         run: |
-          mkdir packages packages\utility packages\wm-api-service packages\wm-client packages\wm-data-service
+          mkdir packages packages\cert packages\utility packages\wm-api-service packages\wm-client packages\wm-data-service
+          xcopy cert packages\cert\
 
           copy target\${{ matrix.target }}\release\utility.exe packages\utility\
 
