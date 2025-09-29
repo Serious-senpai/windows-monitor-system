@@ -86,6 +86,7 @@ def main():
                 stderr=subprocess.DEVNULL
             )
             processes.append(process)
+            time.sleep(0.01)
             print(f"  - Started process {i+1} with PID: {process.pid}")
         except FileNotFoundError:
             print(f"Error: Command not found: {command[0]}", file=sys.stderr)
