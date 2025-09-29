@@ -206,7 +206,7 @@ async fn async_main(
             key.allow_only(&["S-1-5-18\0", "S-1-5-32-544\0"])
                 .expect("Failed to set registry permissions");
 
-            info!("Password stored to Windows Credential Manager");
+            info!("Password stored to Registry");
         })
         .await
         .expect("Unable to set password"),

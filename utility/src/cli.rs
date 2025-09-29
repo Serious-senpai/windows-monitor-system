@@ -42,9 +42,9 @@ pub enum Utility {
         interval_ms: u64,
     },
 
-    /// Update the Windows Credential Manager password with the compile-time value
+    /// Update the password in Registry with the compile-time value
     UseDefaultPassword {
-        /// The name of the Windows Credential Manager entry to update
+        /// The name of the Registry entry to update
         key_name: String,
     },
 }
