@@ -176,6 +176,8 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         Utility::UseDefaultPassword { key_name } => {
             let key =
                 RegistryKey::new(&format!("{key_name}\0")).expect("Failed to open registry key");
+            key.allow_only(&["S-1-5-18\0", "S-1-5-32-544\0"])
+                .expect("Failed to set registry permissions");
             key.store(env!("WINDOWS_MONITOR_PASSWORD").as_bytes())
                 .expect("Failed to store registry value");
         }

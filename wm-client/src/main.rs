@@ -201,10 +201,10 @@ async fn async_main(
         ServiceAction::Password => task::spawn_blocking(move || {
             let password = _read_password("Password (hidden)>");
             let key = _open_registry_password(&configuration);
-            key.store(password.as_bytes())
-                .expect("Failed to store registry value");
             key.allow_only(&["S-1-5-18\0", "S-1-5-32-544\0"])
                 .expect("Failed to set registry permissions");
+            key.store(password.as_bytes())
+                .expect("Failed to store registry value");
 
             info!("Password stored to Registry");
         })
