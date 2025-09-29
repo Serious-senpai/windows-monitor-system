@@ -5,6 +5,7 @@ use std::time::Duration;
 use std::{env, process};
 
 use async_compression::tokio::bufread::ZstdEncoder;
+use chrono::Local;
 use clap::Parser;
 use reqwest::{Certificate, Client, Identity, Url};
 use tokio::io::AsyncReadExt;
@@ -14,7 +15,7 @@ use tokio::time::sleep;
 use tokio::{fs, signal};
 use utility::cli::{Arguments, Utility};
 use utility::generator::EventGenerator;
-use wm_common::credential::CredentialManager;
+use wm_common::registry::RegistryKey;
 
 async fn request(
     client: Client,
@@ -153,7 +154,7 @@ async fn mock_events(files_count: usize, interval_ms: u64) {
             }
         }
 
-        println!("Finished 1 batch");
+        println!("{} Finished 1 batch", Local::now());
         sleep(Duration::from_millis(interval_ms)).await;
     }
 }
@@ -173,11 +174,10 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             interval_ms,
         } => mock_events(files_count, interval_ms).await,
         Utility::UseDefaultPassword { key_name } => {
-            CredentialManager::write(
-                &mut format!("{key_name}\0"),
-                env!("WINDOWS_MONITOR_PASSWORD").as_bytes(),
-            )
-            .expect("Failed to store password");
+            let key =
+                RegistryKey::new(&format!("{key_name}\0")).expect("Failed to open registry key");
+            key.store(env!("WINDOWS_MONITOR_PASSWORD").as_bytes())
+                .expect("Failed to store registry value");
         }
     }
 

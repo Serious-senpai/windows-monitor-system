@@ -9,27 +9,30 @@ use windows::Win32::Security::Credentials::{
 use windows::core::{PCSTR, PSTR};
 
 use crate::error::WindowsError;
+use crate::ptr_guard::PtrGuard;
 
 pub struct CredentialManager;
 
 impl CredentialManager {
     pub fn read(name: &str) -> Result<Vec<u8>, WindowsError> {
-        let mut ptr = ptr::null_mut();
+        let mut cred = PtrGuard::new(|p| unsafe {
+            CredFree(p as *const c_void);
+        });
+
         unsafe {
             CredReadA(
                 PCSTR::from_raw(name.as_ptr()),
                 CRED_TYPE_GENERIC,
                 None,
-                &mut ptr,
+                &mut cred.ptr(),
             )?;
 
-            let credential = &*ptr;
+            let credential = &*cred.ptr();
             let result = slice::from_raw_parts(
                 credential.CredentialBlob,
                 credential.CredentialBlobSize as usize,
             )
             .to_vec();
-            CredFree(ptr as *const c_void);
 
             Ok(result)
         }

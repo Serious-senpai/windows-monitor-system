@@ -1,7 +1,7 @@
 use std::ffi::c_void;
 use std::ptr;
 
-use windows::Win32::Foundation::ERROR_SUCCESS;
+use windows::Win32::Foundation::{ERROR_SUCCESS, HLOCAL, LocalFree};
 use windows::Win32::Security::Authorization::{
     EXPLICIT_ACCESS_A, NO_MULTIPLE_TRUSTEE, SET_ACCESS, SetEntriesInAclA, TRUSTEE_A,
     TRUSTEE_IS_SID, TRUSTEE_IS_USER,
@@ -11,13 +11,14 @@ use windows::Win32::Security::{
     SECURITY_DESCRIPTOR, SUB_CONTAINERS_AND_OBJECTS_INHERIT, SetSecurityDescriptorDacl,
 };
 use windows::Win32::System::Registry::{
-    HKEY, HKEY_LOCAL_MACHINE, KEY_ALL_ACCESS, REG_OPTION_NON_VOLATILE, RegCloseKey,
-    RegCreateKeyExA, RegSetKeySecurity,
+    HKEY, HKEY_LOCAL_MACHINE, KEY_ALL_ACCESS, REG_BINARY, REG_OPTION_NON_VOLATILE, RegCloseKey,
+    RegCreateKeyExA, RegQueryValueExA, RegSetKeySecurity, RegSetValueExA,
 };
 use windows::Win32::System::SystemServices::SECURITY_DESCRIPTOR_REVISION;
 use windows::core::{PCSTR, PSTR};
 
 use crate::error::RuntimeError;
+use crate::ptr_guard::PtrGuard;
 use crate::utils::convert_sid;
 
 pub struct RegistryKey {
@@ -76,10 +77,10 @@ impl RegistryKey {
             });
         }
 
-        // TODO: free this memory later via `LocalFree`, see https://learn.microsoft.com/en-us/windows/win32/api/aclapi/nf-aclapi-setentriesinacla
-        // In fact, most null pointer declared as `ptr::null_mut()` in the entire project must be manually freed somehow.
-        let mut pacl = ptr::null_mut();
-        let error = unsafe { SetEntriesInAclA(Some(&ea), None, &mut pacl) };
+        let mut pacl = PtrGuard::new(|p| unsafe {
+            let _ = LocalFree(Some(HLOCAL(p as *mut c_void)));
+        });
+        let error = unsafe { SetEntriesInAclA(Some(&ea), None, &mut pacl.ptr()) };
         if error != ERROR_SUCCESS {
             return Err(RuntimeError::new(format!(
                 "SetEntriesInAclA error {error:?}"
@@ -92,7 +93,7 @@ impl RegistryKey {
                 PSECURITY_DESCRIPTOR(&mut descriptor as *mut SECURITY_DESCRIPTOR as *mut c_void);
 
             InitializeSecurityDescriptor(pdescriptor, SECURITY_DESCRIPTOR_REVISION)?;
-            SetSecurityDescriptorDacl(pdescriptor, true, Some(pacl), false)?;
+            SetSecurityDescriptorDacl(pdescriptor, true, Some(pacl.ptr()), false)?;
 
             RegSetKeySecurity(self._hkey, DACL_SECURITY_INFORMATION, pdescriptor)
         };
@@ -103,5 +104,45 @@ impl RegistryKey {
         }
 
         Ok(())
+    }
+
+    pub fn store(&self, data: &[u8]) -> Result<(), RuntimeError> {
+        let error = unsafe { RegSetValueExA(self._hkey, None, Some(0), REG_BINARY, Some(data)) };
+        if error != ERROR_SUCCESS {
+            return Err(RuntimeError::new(format!("RegSetValueExA error {error:?}")));
+        }
+
+        Ok(())
+    }
+
+    pub fn read(&self) -> Result<Vec<u8>, RuntimeError> {
+        let mut size = 0;
+        let error =
+            unsafe { RegQueryValueExA(self._hkey, None, None, None, None, Some(&mut size)) };
+        if error != ERROR_SUCCESS {
+            return Err(RuntimeError::new(format!(
+                "RegQueryValueExA error {error:?}"
+            )));
+        }
+
+        let mut data = vec![0; size as usize];
+        let error = unsafe {
+            RegQueryValueExA(
+                self._hkey,
+                None,
+                None,
+                None,
+                Some(data.as_mut_ptr()),
+                Some(&mut size),
+            )
+        };
+        if error != ERROR_SUCCESS {
+            return Err(RuntimeError::new(format!(
+                "RegQueryValueExA error {error:?}"
+            )));
+        }
+
+        data.truncate(size as usize);
+        Ok(data)
     }
 }

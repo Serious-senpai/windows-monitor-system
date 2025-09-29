@@ -4,7 +4,7 @@ trace_name:
   kernel: Windows Monitor Kernel Tracer
   user: Windows Monitor User Tracer
 
-windows_credential_manager_key: Windows Monitor Client Certificate
+password_registry_key: SOFTWARE\WindowsMonitor\CertificatePassword
 
 server: https://localhost:12110
 zstd_compression_level: 3

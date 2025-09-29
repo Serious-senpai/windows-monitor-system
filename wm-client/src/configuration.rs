@@ -22,7 +22,7 @@ pub struct TraceName {
 pub struct Configuration {
     pub service_name: String,
     pub trace_name: TraceName,
-    pub windows_credential_manager_key: String,
+    pub password_registry_key: String,
     pub server: Url,
     pub zstd_compression_level: i32,
     pub system_refresh_interval_seconds: f64,
