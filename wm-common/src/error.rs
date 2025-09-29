@@ -38,6 +38,18 @@ impl From<ParserError> for RuntimeError {
     }
 }
 
+impl From<WindowsError> for RuntimeError {
+    fn from(error: WindowsError) -> Self {
+        Self::new(error._message)
+    }
+}
+
+impl From<core::Error> for RuntimeError {
+    fn from(error: core::Error) -> Self {
+        Self::new(error.message())
+    }
+}
+
 pub struct WindowsError {
     _code: core::HRESULT,
     _message: String,

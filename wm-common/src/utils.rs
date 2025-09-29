@@ -2,9 +2,11 @@ use std::slice;
 use std::sync::LazyLock;
 
 use chrono::{DateTime, Duration, TimeZone, Utc};
+use windows::Win32::Security::Authorization::ConvertStringSidToSidA;
+use windows::Win32::Security::PSID;
 use windows::Win32::System::WindowsProgramming::{GetComputerNameA, MAX_COMPUTERNAME_LENGTH};
 use windows::Win32::UI::Shell::CommandLineToArgvW;
-use windows::core::{PCWSTR, PSTR};
+use windows::core::{PCSTR, PCWSTR, PSTR};
 
 use crate::error::WindowsError;
 
@@ -52,4 +54,13 @@ pub fn split_command_line(command_line: &str) -> Vec<String> {
     }
 
     result
+}
+
+pub fn convert_sid(stringsid: &str) -> Result<PSID, WindowsError> {
+    let mut sid = PSID::default();
+    unsafe {
+        ConvertStringSidToSidA(PCSTR::from_raw(stringsid.as_ptr()), &mut sid)?;
+    }
+
+    Ok(sid)
 }
