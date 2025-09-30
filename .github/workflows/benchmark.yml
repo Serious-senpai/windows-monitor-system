@@ -45,11 +45,11 @@ jobs:
         shell: cmd
         run: |
           target\release\utility use-default-password "SOFTWARE\WindowsMonitor\CertificatePassword"
-          start target\release\wm-data-service start
-          start target\release\wm-api-service start
+          start target\release\wm-data-service.exe start
+          start target\release\wm-api-service.exe start
           start target\release\wm-client.exe start
-          waitfor SomethingThatIsNeverHappening /t 600 2>nul || type nul>nul
           tasklist
+          waitfor SomethingThatIsNeverHappening /t 600 2>nul || type nul>nul
 
       - name: Stop data collector
         run: scripts\data-collector.bat stop
@@ -61,3 +61,9 @@ jobs:
           path: |
             target\benchmark*
             target\release\logs
+
+      - name: Upload RabbitMQ logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: rabbitmq-logs
+          path: ${{ env.APPDATA }}\RabbitMQ\log
