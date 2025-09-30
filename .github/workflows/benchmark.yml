@@ -29,8 +29,10 @@ jobs:
       - name: Setup workspace
         run: |
           scripts\setup.bat
-          choco install rabbitmq
-          rabbitmq-service.bat start
+          choco install rabbitmq --version 4.1.4
+
+      - name: Start RabbitMQ
+        run: rabbitmq-service.bat start
 
       - name: Build workspace
         run: cargo build --release
