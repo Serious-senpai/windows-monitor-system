@@ -29,6 +29,8 @@ jobs:
       - name: Setup workspace
         run: |
           scripts\setup.bat
+
+          set RABBITMQ_BASE=%cd%\rabbitmq
           choco install rabbitmq --version 4.1.4
           sc query RabbitMQ
 
@@ -54,19 +56,11 @@ jobs:
       - name: Stop data collector
         run: scripts\data-collector.bat stop
 
-      - name: Copy RabbitMQ logs
-        shell: cmd
-        run: |
-          mkdir rabbitmq-logs
-
-          echo Copying logs from %RABBITMQ_LOG_BASE%
-          xcopy "%RABBITMQ_LOG_BASE%" rabbitmq-logs
-
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
         with:
           name: benchmark
           path: |
-            rabbitmq-logs\
+            rabbitmq\
             target\benchmark*
             target\release\logs
