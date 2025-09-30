@@ -29,6 +29,14 @@ jobs:
       - name: Setup workspace
         run: scripts\setup.bat
 
+      - name: Setup RabbitMQ
+        shell: cmd
+        run: |
+          mkdir rabbitmq
+          set RABBITMQ_BASE=%cd%\rabbitmq
+          choco install rabbitmq --version 4.1.4
+          sc query RabbitMQ
+
       - name: Build workspace
         run: cargo build --release
 
@@ -42,10 +50,11 @@ jobs:
         shell: cmd
         run: |
           target\release\utility use-default-password "SOFTWARE\WindowsMonitor\CertificatePassword"
-          start target\release\wm-api-service start
+          start target\release\wm-data-service.exe start
+          start target\release\wm-api-service.exe start
           start target\release\wm-client.exe start
-          waitfor SomethingThatIsNeverHappening /t 600 2>nul || type nul>nul
           tasklist
+          waitfor SomethingThatIsNeverHappening /t 600 2>nul || type nul>nul
 
       - name: Stop data collector
         run: scripts\data-collector.bat stop
@@ -55,5 +64,6 @@ jobs:
         with:
           name: benchmark
           path: |
+            rabbitmq\log
             target\benchmark*
             target\release\logs
