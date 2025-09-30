@@ -3,7 +3,7 @@ resolver = "2"
 members = ["utility", "wm-api-service", "wm-client", "wm-common", "wm-data-service", "wm-generated"]
 
 [workspace.dependencies]
-async-compression = { version = "^0.4.30", features = ["tokio", "zstd"] }
+async-compression = { version = "^0.4.32", features = ["tokio", "zstd"] }
 async-trait = "^0.1.88"
 chrono = { version = "^0.4.41", features = ["serde"] }
 clap = { version = "^4.5.48", features = ["cargo", "derive"] }
