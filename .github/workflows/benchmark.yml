@@ -54,16 +54,17 @@ jobs:
       - name: Stop data collector
         run: scripts\data-collector.bat stop
 
+      - name: Copy RabbitMQ logs
+        shell: cmd
+        run: |
+          mkdir rabbitmq-logs
+          xcopy "%RABBITMQ_LOG_BASE%" rabbitmq-logs
+
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
         with:
           name: benchmark
           path: |
+            rabbitmq-logs\
             target\benchmark*
             target\release\logs
-
-      - name: Upload RabbitMQ logs
-        uses: actions/upload-artifact@v4
-        with:
-          name: rabbitmq-logs
-          path: ${{ env.RABBITMQ_LOG_BASE }}
