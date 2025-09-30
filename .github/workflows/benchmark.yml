@@ -64,6 +64,6 @@ jobs:
         with:
           name: benchmark
           path: |
-            rabbitmq\
+            rabbitmq\log
             target\benchmark*
             target\release\logs
