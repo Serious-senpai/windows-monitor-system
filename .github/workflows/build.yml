@@ -66,7 +66,7 @@ jobs:
           copy target\${{ matrix.target }}\release\wm-data-service.exe packages\wm-data-service\
           copy target\release\data-service-config.yml packages\wm-data-service\
 
-          tree packages
+          tree /f packages
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
