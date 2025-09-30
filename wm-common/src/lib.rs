@@ -1,5 +1,6 @@
 pub mod credential;
 pub mod error;
+pub mod file;
 pub mod job;
 pub mod logger;
 pub mod once_cell_no_retry;

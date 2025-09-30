@@ -3,10 +3,11 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use async_compression::tokio::write::ZstdEncoder;
-use log::{error, info};
+use log::{error, info, warn};
 use tokio::fs;
 use tokio::io::{AsyncWriteExt, BufWriter};
 use tokio::sync::{Mutex, SetOnce};
+use wm_common::file;
 use wm_common::schema::event::CapturedEventRecord;
 
 use crate::configuration::Configuration;
@@ -30,7 +31,7 @@ impl Backup {
         let mut index = 0;
         let (file, path) = loop {
             let backup_path = Self::_get_log_file_path(config, index);
-            match fs::File::create_new(&backup_path).await {
+            match file::create_new_exclusively(&backup_path) {
                 Ok(f) => break (f, backup_path),
                 Err(_) => {
                     index += 1;
@@ -109,28 +110,35 @@ impl Backup {
 
             info!("Sending backup {}", entry.path().display());
 
-            let file = fs::File::open(entry.path()).await?;
-            match http.api().post("/backup").body(file).send().await {
-                Ok(response) => {
-                    if response.status() == 204 {
-                        info!("Uploaded backup {}", entry.path().display());
-                        if let Err(e) = fs::remove_file(entry.path()).await {
+            match file::open_exclusively(entry.path()) {
+                Ok(file) => match http.api().post("/backup").body(file).send().await {
+                    Ok(response) => {
+                        if response.status() == 204 {
+                            info!("Uploaded backup {}", entry.path().display());
+                            if let Err(e) = fs::remove_file(entry.path()).await {
+                                error!(
+                                    "Failed to delete backup {} after upload: {e}",
+                                    entry.path().display()
+                                );
+                            }
+                        } else {
                             error!(
-                                "Failed to delete backup {} after upload: {e}",
+                                "Backup response {} for {}",
+                                response.status(),
                                 entry.path().display()
                             );
                         }
-                    } else {
+                    }
+                    Err(e) => {
                         error!(
-                            "Backup response {} for {}",
-                            response.status(),
+                            "Failed to send backup {} to server: {e}",
                             entry.path().display()
                         );
                     }
-                }
+                },
                 Err(e) => {
-                    error!(
-                        "Failed to send backup {} to server: {e}",
+                    warn!(
+                        "Unable to open {} for reading. Skipping this file: {e}",
                         entry.path().display()
                     );
                 }

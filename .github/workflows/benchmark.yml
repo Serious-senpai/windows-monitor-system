@@ -12,9 +12,6 @@ jobs:
   benchmark:
     name: Benchmark resource usage
     runs-on: windows-latest
-    strategy:
-      matrix:
-        clients: [1, 2, 3, 4]
 
     steps:
       - name: Checkout repository
@@ -46,7 +43,7 @@ jobs:
         run: |
           target\release\utility use-default-password "SOFTWARE\WindowsMonitor\CertificatePassword"
           start target\release\wm-api-service start
-          start python scripts\benchmark.py -n ${{ matrix.clients }} "target\\release\\wm-client.exe start"
+          start target\release\wm-client.exe start
           waitfor SomethingThatIsNeverHappening /t 600 2>nul || type nul>nul
           tasklist
 
@@ -56,7 +53,7 @@ jobs:
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-${{ matrix.clients }}-clients
+          name: benchmark
           path: |
             target\benchmark*
             target\release\logs
