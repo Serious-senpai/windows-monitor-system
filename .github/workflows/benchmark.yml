@@ -58,6 +58,8 @@ jobs:
         shell: cmd
         run: |
           mkdir rabbitmq-logs
+
+          echo Copying logs from %RABBITMQ_LOG_BASE%
           xcopy "%RABBITMQ_LOG_BASE%" rabbitmq-logs
 
       - name: Upload benchmark results
