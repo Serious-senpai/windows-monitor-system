@@ -27,7 +27,10 @@ jobs:
         run: Get-CimInstance Win32_Processor | Format-List *
 
       - name: Setup workspace
-        run: scripts\setup.bat
+        run: |
+          scripts\setup.bat
+          choco install rabbitmq
+          rabbitmq-service.bat start
 
       - name: Build workspace
         run: cargo build --release
@@ -42,6 +45,7 @@ jobs:
         shell: cmd
         run: |
           target\release\utility use-default-password "SOFTWARE\WindowsMonitor\CertificatePassword"
+          start target\release\wm-data-service start
           start target\release\wm-api-service start
           start target\release\wm-client.exe start
           waitfor SomethingThatIsNeverHappening /t 600 2>nul || type nul>nul
