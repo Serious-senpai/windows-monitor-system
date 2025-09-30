@@ -66,4 +66,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rabbitmq-logs
-          path: ${{ env.APPDATA }}\RabbitMQ\log
+          path: ${{ env.RABBITMQ_LOG_BASE }}
