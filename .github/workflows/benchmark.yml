@@ -27,9 +27,12 @@ jobs:
         run: Get-CimInstance Win32_Processor | Format-List *
 
       - name: Setup workspace
-        run: |
-          scripts\setup.bat
+        run: scripts\setup.bat
 
+      - name: Setup RabbitMQ
+        shell: cmd
+        run: |
+          mkdir rabbitmq
           set RABBITMQ_BASE=%cd%\rabbitmq
           choco install rabbitmq --version 4.1.4
           sc query RabbitMQ
