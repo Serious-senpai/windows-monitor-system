@@ -17,6 +17,9 @@ jobs:
       matrix:
         target: [aarch64-pc-windows-msvc, i686-pc-windows-msvc, x86_64-pc-windows-gnu, x86_64-pc-windows-msvc]
 
+    env:
+      CARGO_BUILD_TARGET: ${{ matrix.target }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -32,28 +35,35 @@ jobs:
         run: scripts\setup.bat
 
       - name: Install Inno Setup
-        run: winget install --id JRSoftware.InnoSetup -e -s winget
+        shell: cmd
+        run: |
+          curl https://files.jrsoftware.org/is/6/innosetup-6.5.4.exe --output innosetup-6.5.4.exe
+          innosetup-6.5.4.exe /verysilent /dir="%cd%\inno-setup"
+          dir inno-setup
 
       - name: Build utility
-        run: cargo build --release -p utility --target ${{ matrix.target }}
+        run: cargo build --release -p utility
 
       - name: Build wm-api-service
-        run: cargo build --release -p wm-api-service --target ${{ matrix.target }}
+        run: cargo build --release -p wm-api-service
 
       - name: Build wm-client
-        run: cargo build --release -p wm-client --target ${{ matrix.target }}
+        run: cargo build --release -p wm-client
 
       - name: Build wm-common
-        run: cargo build --release -p wm-common --target ${{ matrix.target }}
+        run: cargo build --release -p wm-common
 
       - name: Build wm-data-service
-        run: cargo build --release -p wm-data-service --target ${{ matrix.target }}
+        run: cargo build --release -p wm-data-service
 
       - name: Build wm-generated
-        run: cargo build --release -p wm-generated --target ${{ matrix.target }}
+        run: cargo build --release -p wm-generated
 
       - name: Build agent installer
-        run: iscc scripts\package.iss
+        shell: cmd
+        env:
+          TARGET_DIR: ${{ matrix.target }}\
+        run: inno-setup\iscc.exe scripts\package.iss
 
       - name: Package executables
         shell: cmd
