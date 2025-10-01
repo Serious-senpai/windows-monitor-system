@@ -62,7 +62,7 @@ jobs:
       - name: Build agent installer
         shell: cmd
         run: |
-          dir
+          tree /f
           inno-setup\iscc.exe scripts\package.iss
 
       - name: Package executables
