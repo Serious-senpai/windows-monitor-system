@@ -32,6 +32,7 @@ jobs:
         run: scripts\setup.bat
 
       - name: Install Inno Setup
+        shell: cmd
         run: |
           curl https://files.jrsoftware.org/is/6/innosetup-6.5.4.exe --output innosetup-6.5.4.exe
           innosetup-6.5.4.exe /verysilent /dir="%cd%\inno-setup"
