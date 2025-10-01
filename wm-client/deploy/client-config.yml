@@ -1,11 +1,3 @@
-service_name: Windows Monitor Agent Service
-
-trace_name:
-  kernel: Windows Monitor Kernel Tracer
-  user: Windows Monitor User Tracer
-
-password_registry_key: SOFTWARE\WindowsMonitor\CertificatePassword
-
 server: https://localhost:12110
 zstd_compression_level: 3
 system_refresh_interval_seconds: 3.0

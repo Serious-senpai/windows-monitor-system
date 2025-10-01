@@ -47,13 +47,15 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Registry]
 ; This registry key is created in the [Run] section
-Root: HKLM; Subkey: "SOFTWARE\WindowsMonitor\CertificatePassword"; Flags: dontcreatekey uninsdeletekey
+Root: HKLM; Subkey: "SOFTWARE\WindowsMonitor"; Flags: dontcreatekey uninsdeletekey
 
 [Run]
-Filename: "{app}\utility.exe"; Parameters: "use-default-password HKEY_LOCAL_MACHINE\SOFTWARE\WindowsMonitor\CertificatePassword"; Description: "Set default password to registry"; Flags: runhidden
+Filename: "{app}\utility.exe"; Parameters: "use-default-password SOFTWARE\WindowsMonitor\CertificatePassword"; Description: "Set default password to registry"; Flags: runhidden
 Filename: "{app}\{#MyAppExeName}"; Parameters: "create"; Description: "Install the service"; Flags: runhidden
+Filename: "{sys}\sc.exe"; Parameters: "start ""Windows Monitor Agent Service"""; Description: "Start the service"; Flags: runhidden
 
 [UninstallRun]
+Filename: "{sys}\sc.exe"; Parameters: "stop ""Windows Monitor Agent Service"""; RunOnceId: "StopWindowsMonitor"; Flags: runhidden
 Filename: "{app}\{#MyAppExeName}"; Parameters: "delete"; RunOnceId: "DeleteWindowsMonitor"; Flags: runhidden
 
 [UninstallDelete]

@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -23,6 +24,7 @@ pub struct Agent {
     _connector: Arc<Connector>,
 
     _config: Arc<Configuration>,
+    _app_directory: PathBuf,
     _stopped: Arc<SetOnce<()>>,
     _backup: Arc<Mutex<Backup>>,
     _http: Arc<HttpClient>,
@@ -30,8 +32,13 @@ pub struct Agent {
 }
 
 impl Agent {
-    pub async fn async_new(config: Arc<Configuration>, password: &str) -> Self {
-        let backup = Arc::new(Mutex::new(Backup::async_new(config.clone()).await));
+    pub async fn async_new(
+        config: Arc<Configuration>,
+        app_directory: PathBuf,
+        password: &str,
+    ) -> Self {
+        let backup_directory = app_directory.join(&config.backup_directory);
+        let backup = Arc::new(Mutex::new(Backup::async_new(backup_directory).await));
 
         let http = Arc::new(HttpClient::new(&config, password));
         let (sender, receiver) = mpsc::channel(config.message_queue_limit);
@@ -41,6 +48,7 @@ impl Agent {
             _backup_sender: Arc::new(BackupSender::new(backup.clone(), http.clone())),
             _connector: Connector::new(config.clone(), receiver, backup.clone(), http.clone()),
             _config: config.clone(),
+            _app_directory: app_directory,
             _stopped: Arc::new(SetOnce::new()),
             _backup: backup,
             _http: http,

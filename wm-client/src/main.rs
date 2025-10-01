@@ -134,7 +134,8 @@ async fn async_main(
             let value = key.read().expect("Failed to read registry value");
             let password = String::from_utf8(value).expect("Registry password is not valid UTF-8");
 
-            let agent = Arc::new(Agent::async_new(configuration.clone(), &password).await);
+            let agent =
+                Arc::new(Agent::async_new(configuration.clone(), app_directory, &password).await);
             let s_handle = if windows_service_detector::is_running_as_windows_service() == Ok(true)
             {
                 info!("Checking service {}", configuration.service_name);
@@ -157,6 +158,7 @@ async fn async_main(
                         debug!("Received service command: {command:?}");
 
                         match command {
+                            Command::Start => info!("Received service Start command"),
                             Command::Stop => {
                                 info!("Stopping service");
                                 agent.stop();

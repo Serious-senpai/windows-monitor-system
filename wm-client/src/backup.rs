@@ -10,27 +10,26 @@ use tokio::sync::{Mutex, SetOnce};
 use wm_common::file;
 use wm_common::schema::event::CapturedEventRecord;
 
-use crate::configuration::Configuration;
 use crate::http::HttpClient;
 
 pub struct Backup {
-    _config: Arc<Configuration>,
+    _backup_directory: PathBuf,
     _path: PathBuf,
     _zstd: ZstdEncoder<BufWriter<fs::File>>,
 }
 
 impl Backup {
-    fn _get_log_file_path(config: &Configuration, index: i32) -> PathBuf {
-        config.backup_directory.join(format!("backup-{index}.zst"))
+    fn _get_log_file_path(backup_directory: &Path, index: i32) -> PathBuf {
+        backup_directory.join(format!("backup-{index}.zst"))
     }
 
     async fn _switch_to_new_path(
-        config: &Configuration,
+        backup_directory: &Path,
     ) -> (PathBuf, ZstdEncoder<BufWriter<fs::File>>) {
-        let _ = fs::create_dir_all(&config.backup_directory).await;
+        let _ = fs::create_dir_all(backup_directory).await;
         let mut index = 0;
-        let (file, path) = loop {
-            let backup_path = Self::_get_log_file_path(config, index);
+        let (file, mut path) = loop {
+            let backup_path = Self::_get_log_file_path(backup_directory, index);
             match file::create_new_exclusively(&backup_path) {
                 Ok(f) => break (f, backup_path),
                 Err(_) => {
@@ -42,14 +41,16 @@ impl Backup {
             }
         };
 
+        path = path.canonicalize().unwrap_or(path);
+        info!("Switched to backup file: {}", path.display());
         (path, ZstdEncoder::new(BufWriter::new(file)))
     }
 
-    pub async fn async_new(config: Arc<Configuration>) -> Self {
-        let (path, zstd) = Self::_switch_to_new_path(&config).await;
+    pub async fn async_new(backup_directory: PathBuf) -> Self {
+        let (path, zstd) = Self::_switch_to_new_path(&backup_directory).await;
 
         Self {
-            _config: config,
+            _backup_directory: backup_directory,
             _path: path,
             _zstd: zstd,
         }
@@ -62,10 +63,9 @@ impl Backup {
     pub async fn switch_backup(&mut self) {
         self.flush().await;
 
-        let (path, zstd) = Self::_switch_to_new_path(&self._config).await;
+        let (path, zstd) = Self::_switch_to_new_path(&self._backup_directory).await;
         self._path = path;
         self._zstd = zstd;
-        info!("Switched to new backup file: {}", self._path.display());
     }
 
     pub async fn write_one(&mut self, data: &CapturedEventRecord) {
@@ -96,7 +96,7 @@ impl Backup {
         http: Arc<HttpClient>,
         stopped: Arc<SetOnce<()>>,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let backup_directory = backup.lock().await._config.backup_directory.clone();
+        let backup_directory = backup.lock().await._backup_directory.clone();
 
         let mut entries = fs::read_dir(&backup_directory).await?;
         while let Ok(Some(entry)) = entries.next_entry().await
@@ -138,7 +138,7 @@ impl Backup {
                 },
                 Err(e) => {
                     warn!(
-                        "Unable to open {} for reading. Skipping this file: {e}",
+                        "Unable to open backup {} for reading. Skipping: {e}",
                         entry.path().display()
                     );
                 }
