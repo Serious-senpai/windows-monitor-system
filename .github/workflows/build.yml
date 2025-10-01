@@ -61,9 +61,9 @@ jobs:
 
       - name: Build agent installer
         shell: cmd
-        run: |
-          tree /f
-          inno-setup\iscc.exe scripts\package.iss
+        env:
+          TARGET_DIR: ${{ matrix.target }}\
+        run: inno-setup\iscc.exe scripts\package.iss
 
       - name: Package executables
         shell: cmd
@@ -71,16 +71,16 @@ jobs:
           mkdir packages packages\cert packages\utility packages\wm-api-service packages\wm-client packages\wm-data-service
           xcopy cert packages\cert\
 
-          copy target\release\utility.exe packages\utility\
+          copy target\${{ matrix.target }}\release\utility.exe packages\utility\
 
-          copy target\release\wm-api-service.exe packages\wm-api-service\
-          copy target\release\api-service-config.yml packages\wm-api-service\
+          copy target\${{ matrix.target }}\release\wm-api-service.exe packages\wm-api-service\
+          copy target\${{ matrix.target }}\release\api-service-config.yml packages\wm-api-service\
 
-          copy target\release\wm-client.exe packages\wm-client\
-          copy target\release\client-config.yml packages\wm-client\
+          copy target\${{ matrix.target }}\release\wm-client.exe packages\wm-client\
+          copy target\${{ matrix.target }}\release\client-config.yml packages\wm-client\
 
-          copy target\release\wm-data-service.exe packages\wm-data-service\
-          copy target\release\data-service-config.yml packages\wm-data-service\
+          copy target\${{ matrix.target }}\release\wm-data-service.exe packages\wm-data-service\
+          copy target\${{ matrix.target }}\release\data-service-config.yml packages\wm-data-service\
 
           copy target\windows-monitor-installer.exe packages\
 

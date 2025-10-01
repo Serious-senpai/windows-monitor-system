@@ -36,9 +36,9 @@ SolidCompression=yes
 WizardStyle=modern
 
 [Files]
-Source: "..\target\release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\target\release\utility.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\target\release\client-config.yml"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\target\{#GetEnv("TARGET_DIR")}release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\target\{#GetEnv("TARGET_DIR")}release\utility.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\target\{#GetEnv("TARGET_DIR")}release\client-config.yml"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: isreadme
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
