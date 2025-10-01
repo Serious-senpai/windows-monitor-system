@@ -22,8 +22,8 @@ fn _exclusive_createfile(
     desired_access: GENERIC_ACCESS_RIGHTS,
     creation_disposition: FILE_CREATION_DISPOSITION,
 ) -> Result<File, WindowsError> {
+    let temp_buf = _osstr_to_vec16(path.as_os_str());
     unsafe {
-        let temp_buf = _osstr_to_vec16(path.as_os_str());
         let handle = CreateFileW(
             PCWSTR::from_raw(temp_buf.as_ptr()),
             desired_access.0,

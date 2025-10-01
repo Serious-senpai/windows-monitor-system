@@ -16,6 +16,7 @@ use tokio::{fs, signal};
 use utility::cli::{Arguments, Utility};
 use utility::generator::EventGenerator;
 use wm_common::registry::RegistryKey;
+use wm_common::utils::to_c_string;
 
 async fn request(
     client: Client,
@@ -175,9 +176,12 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         } => mock_events(files_count, interval_ms).await,
         Utility::UseDefaultPassword { key_name } => {
             let key =
-                RegistryKey::new(&format!("{key_name}\0")).expect("Failed to open registry key");
-            key.allow_only(&["S-1-5-18\0", "S-1-5-32-544\0"])
-                .expect("Failed to set registry permissions");
+                RegistryKey::new(&to_c_string(key_name)).expect("Failed to open registry key");
+            key.allow_only(&[
+                &to_c_string("S-1-5-18".to_string()),
+                &to_c_string("S-1-5-32-544".to_string()),
+            ])
+            .expect("Failed to set registry permissions");
             key.store(env!("WINDOWS_MONITOR_PASSWORD").as_bytes())
                 .expect("Failed to store registry value");
         }

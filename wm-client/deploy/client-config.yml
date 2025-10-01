@@ -1,7 +1,7 @@
 server: https://localhost:12110
 zstd_compression_level: 3
 system_refresh_interval_seconds: 3.0
-backup_directory: target\backup
+backup_directory: backup
 
 log_level: Info
 message_queue_limit: 1000

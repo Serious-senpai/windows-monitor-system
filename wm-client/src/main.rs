@@ -5,7 +5,7 @@ use std::io::{Write, stdout};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use async_compression::tokio::write::ZstdDecoder;
 use clap::Parser;
@@ -13,6 +13,7 @@ use config_file::FromConfigFile;
 use log::{debug, info, warn};
 use mimalloc::MiMalloc;
 use tokio::runtime::Builder;
+use tokio::time::sleep;
 use tokio::{fs, io, signal, task};
 use windows::Win32::System::Services::SC_MANAGER_ALL_ACCESS;
 use windows_services::{Command, Service};
@@ -25,12 +26,13 @@ use wm_common::logger::initialize_logger;
 use wm_common::registry::RegistryKey;
 use wm_common::service::service_manager::ServiceManager;
 use wm_common::service::status::ServiceState;
+use wm_common::utils::to_c_string;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
 fn _open_registry_password(config: &Configuration) -> RegistryKey {
-    RegistryKey::new(&format!("{}\0", config.password_registry_key))
+    RegistryKey::new(&to_c_string(config.password_registry_key.clone()))
         .expect("Failed to open registry key")
 }
 
@@ -102,8 +104,8 @@ async fn async_main(
 
             let scm = ServiceManager::new(SC_MANAGER_ALL_ACCESS)?;
             scm.create_service(
-                &format!("{}\0", configuration.service_name),
-                &format!("{} start\0", executable_path.display()),
+                &to_c_string(configuration.service_name.clone()),
+                &to_c_string(executable_path.display().to_string()),
             )?;
 
             // let password = _read_password("Administrator password (hidden)>");
@@ -142,7 +144,7 @@ async fn async_main(
 
                 let scm = ServiceManager::new(SC_MANAGER_ALL_ACCESS)?;
                 let status =
-                    scm.query_service_status(&format!("{}\0", configuration.service_name))?;
+                    scm.query_service_status(&to_c_string(configuration.service_name.clone()))?;
                 if status.current_state != ServiceState::StartPending {
                     Err(RuntimeError::new(format!(
                         "Invalid state {:?}",
@@ -192,19 +194,40 @@ async fn async_main(
             }
             a_handle.await??;
         }
+        ServiceAction::Stop => {
+            info!("Stopping service {}", configuration.service_name);
+
+            let scm = ServiceManager::new(SC_MANAGER_ALL_ACCESS)?;
+            scm.stop_service(&to_c_string(configuration.service_name.clone()))?;
+
+            while let Ok(status) =
+                scm.query_service_status(&to_c_string(configuration.service_name.clone()))
+            {
+                if status.current_state == ServiceState::Stopped {
+                    break;
+                }
+
+                sleep(Duration::from_millis(500)).await;
+            }
+
+            info!("Done");
+        }
         ServiceAction::Delete => {
             info!("Deleting service {}", configuration.service_name);
 
             let scm = ServiceManager::new(SC_MANAGER_ALL_ACCESS)?;
-            scm.delete_service(&format!("{}\0", configuration.service_name))?;
+            scm.delete_service(&to_c_string(configuration.service_name.clone()))?;
 
             info!("Done");
         }
         ServiceAction::Password => task::spawn_blocking(move || {
             let password = _read_password("Password (hidden)>");
             let key = _open_registry_password(&configuration);
-            key.allow_only(&["S-1-5-18\0", "S-1-5-32-544\0"])
-                .expect("Failed to set registry permissions");
+            key.allow_only(&[
+                &to_c_string("S-1-5-18".to_string()),
+                &to_c_string("S-1-5-32-544".to_string()),
+            ])
+            .expect("Failed to set registry permissions");
             key.store(password.as_bytes())
                 .expect("Failed to store registry value");
 

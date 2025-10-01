@@ -1,6 +1,6 @@
-use std::ffi::c_void;
+use std::ffi::{CStr, c_void};
 
-use windows::Win32::Foundation::{CloseHandle, HANDLE};
+use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::JobObjects::{
     AssignProcessToJobObject, CreateJobObjectA, JOB_OBJECT_CPU_RATE_CONTROL_ENABLE,
     JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP, JOBOBJECT_CPU_RATE_CONTROL_INFORMATION,
@@ -17,9 +17,9 @@ pub struct AssignJobGuard {
 }
 
 impl AssignJobGuard {
-    pub fn new(name: &str) -> Result<Self, WindowsError> {
+    pub fn new(name: &CStr) -> Result<Self, WindowsError> {
         unsafe {
-            let job = CreateJobObjectA(None, PCSTR::from_raw(name.as_ptr()))?;
+            let job = CreateJobObjectA(None, PCSTR::from_raw(name.as_ptr() as *const u8))?;
             let current_process = GetCurrentProcess();
             AssignProcessToJobObject(job, current_process)?;
 
@@ -34,6 +34,7 @@ impl AssignJobGuard {
                 CpuRate: (10000.0 * rate) as u32,
             },
         };
+
         unsafe {
             SetInformationJobObject(
                 self._job,
@@ -45,13 +46,5 @@ impl AssignJobGuard {
             )?;
         }
         Ok(())
-    }
-}
-
-impl Drop for AssignJobGuard {
-    fn drop(&mut self) {
-        unsafe {
-            let _ = CloseHandle(self._job);
-        }
     }
 }

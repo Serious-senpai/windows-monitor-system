@@ -55,8 +55,9 @@ Filename: "{app}\{#MyAppExeName}"; Parameters: "create"; Description: "Install t
 Filename: "{sys}\sc.exe"; Parameters: "start ""Windows Monitor Agent Service"""; Description: "Start the service"; Flags: runhidden
 
 [UninstallRun]
-Filename: "{sys}\sc.exe"; Parameters: "stop ""Windows Monitor Agent Service"""; RunOnceId: "StopWindowsMonitor"; Flags: runhidden
+Filename: "{app}\{#MyAppExeName}"; Parameters: "stop"; RunOnceId: "StopWindowsMonitor"; Flags: runhidden
 Filename: "{app}\{#MyAppExeName}"; Parameters: "delete"; RunOnceId: "DeleteWindowsMonitor"; Flags: runhidden
 
 [UninstallDelete]
+Type: filesandordirs; Name: "{app}\backup"
 Type: filesandordirs; Name: "{app}\logs"

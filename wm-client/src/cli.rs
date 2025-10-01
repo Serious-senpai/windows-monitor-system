@@ -22,6 +22,9 @@ pub enum ServiceAction {
     /// Start the Windows service or run in console mode if not running as a service
     Start,
 
+    /// Stop the Windows service
+    Stop,
+
     /// Delete the Windows service
     Delete,
 

@@ -1,4 +1,4 @@
-use std::ffi::c_void;
+use std::ffi::{CStr, c_void};
 use std::ptr;
 
 use windows::Win32::Foundation::{ERROR_SUCCESS, HLOCAL, LocalFree};
@@ -11,8 +11,8 @@ use windows::Win32::Security::{
     SECURITY_DESCRIPTOR, SUB_CONTAINERS_AND_OBJECTS_INHERIT, SetSecurityDescriptorDacl,
 };
 use windows::Win32::System::Registry::{
-    HKEY, HKEY_LOCAL_MACHINE, KEY_ALL_ACCESS, REG_BINARY, REG_OPTION_NON_VOLATILE, RegCloseKey,
-    RegCreateKeyExA, RegQueryValueExA, RegSetKeySecurity, RegSetValueExA,
+    HKEY, HKEY_LOCAL_MACHINE, KEY_ALL_ACCESS, REG_BINARY, REG_OPTION_NON_VOLATILE, RegCreateKeyExA,
+    RegQueryValueExA, RegSetKeySecurity, RegSetValueExA,
 };
 use windows::Win32::System::SystemServices::SECURITY_DESCRIPTOR_REVISION;
 use windows::core::{PCSTR, PSTR};
@@ -25,21 +25,14 @@ pub struct RegistryKey {
     _hkey: HKEY,
 }
 
-impl Drop for RegistryKey {
-    fn drop(&mut self) {
-        unsafe {
-            let _ = RegCloseKey(self._hkey);
-        }
-    }
-}
 impl RegistryKey {
-    pub fn new(subkey: &str) -> Result<Self, RuntimeError> {
+    pub fn new(subkey: &CStr) -> Result<Self, RuntimeError> {
         let mut hkey = HKEY::default();
 
         let error = unsafe {
             RegCreateKeyExA(
                 HKEY_LOCAL_MACHINE,
-                PCSTR::from_raw(subkey.as_ptr()),
+                PCSTR::from_raw(subkey.as_ptr() as *const u8),
                 Some(0),
                 None,
                 REG_OPTION_NON_VOLATILE,
@@ -59,10 +52,14 @@ impl RegistryKey {
         }
     }
 
-    pub fn allow_only(&self, stringsids: &[&str]) -> Result<(), RuntimeError> {
-        let mut ea = Vec::with_capacity(stringsids.len());
+    pub fn allow_only(&self, stringsids: &[&CStr]) -> Result<(), RuntimeError> {
+        let mut sids = Vec::with_capacity(stringsids.len());
         for stringsid in stringsids {
-            let sid = convert_sid(stringsid)?;
+            sids.push(convert_sid(stringsid)?);
+        }
+
+        let mut ea = Vec::with_capacity(stringsids.len());
+        for sid in &mut sids {
             ea.push(EXPLICIT_ACCESS_A {
                 grfAccessPermissions: KEY_ALL_ACCESS.0,
                 grfAccessMode: SET_ACCESS,
@@ -72,7 +69,7 @@ impl RegistryKey {
                     MultipleTrusteeOperation: NO_MULTIPLE_TRUSTEE,
                     TrusteeForm: TRUSTEE_IS_SID,
                     TrusteeType: TRUSTEE_IS_USER,
-                    ptstrName: PSTR::from_raw(sid.0 as *mut u8),
+                    ptstrName: PSTR::from_raw(sid.as_ptr() as *mut u8),
                 },
             });
         }
@@ -80,7 +77,7 @@ impl RegistryKey {
         let mut pacl = PtrGuard::new(|p| unsafe {
             let _ = LocalFree(Some(HLOCAL(p as *mut c_void)));
         });
-        let error = unsafe { SetEntriesInAclA(Some(&ea), None, &mut pacl.ptr()) };
+        let error = unsafe { SetEntriesInAclA(Some(&ea), None, pacl.as_mut_ptr()) };
         if error != ERROR_SUCCESS {
             return Err(RuntimeError::new(format!(
                 "SetEntriesInAclA error {error:?}"
@@ -93,7 +90,7 @@ impl RegistryKey {
                 PSECURITY_DESCRIPTOR(&mut descriptor as *mut SECURITY_DESCRIPTOR as *mut c_void);
 
             InitializeSecurityDescriptor(pdescriptor, SECURITY_DESCRIPTOR_REVISION)?;
-            SetSecurityDescriptorDacl(pdescriptor, true, Some(pacl.ptr()), false)?;
+            SetSecurityDescriptorDacl(pdescriptor, true, Some(pacl.as_ptr()), false)?;
 
             RegSetKeySecurity(self._hkey, DACL_SECURITY_INFORMATION, pdescriptor)
         };

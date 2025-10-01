@@ -1,4 +1,4 @@
-use std::ffi::c_void;
+use std::ffi::{CStr, c_void};
 use std::{ptr, slice};
 
 use windows::Win32::Foundation::FILETIME;
@@ -11,35 +11,36 @@ use windows::core::{PCSTR, PSTR};
 use crate::error::WindowsError;
 use crate::ptr_guard::PtrGuard;
 
-pub fn read(name: &str) -> Result<Vec<u8>, WindowsError> {
-    let mut cred = PtrGuard::new(|p| unsafe {
-        CredFree(p as *const c_void);
-    });
-
+pub fn read(name: &CStr) -> Result<Vec<u8>, WindowsError> {
     unsafe {
+        let mut cred = PtrGuard::new(|p: *mut CREDENTIALA| {
+            if !p.is_null() {
+                CredFree(p as *const c_void);
+            }
+        });
         CredReadA(
-            PCSTR::from_raw(name.as_ptr()),
+            PCSTR::from_raw(name.as_ptr() as *const u8),
             CRED_TYPE_GENERIC,
             None,
-            &mut cred.ptr(),
+            cred.as_mut_ptr(),
         )?;
 
-        let credential = &*cred.ptr();
-        let result = slice::from_raw_parts(
-            credential.CredentialBlob,
-            credential.CredentialBlobSize as usize,
-        )
-        .to_vec();
-
-        Ok(result)
+        Ok(match cred.as_ptr().as_ref() {
+            Some(credential) => slice::from_raw_parts(
+                credential.CredentialBlob,
+                credential.CredentialBlobSize as usize,
+            )
+            .to_vec(),
+            None => vec![],
+        })
     }
 }
 
-pub fn write(name: &mut str, data: &[u8]) -> Result<(), WindowsError> {
+pub fn write(name: &mut CStr, data: &[u8]) -> Result<(), WindowsError> {
     let credential = CREDENTIALA {
         Flags: CRED_FLAGS(0),
         Type: CRED_TYPE_GENERIC,
-        TargetName: PSTR::from_raw(name.as_mut_ptr()),
+        TargetName: PSTR::from_raw(name.as_ptr() as *mut u8),
         Comment: PSTR::null(),
         LastWritten: FILETIME::default(),
         CredentialBlobSize: data.len() as u32,

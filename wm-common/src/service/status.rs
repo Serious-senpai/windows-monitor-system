@@ -1,5 +1,5 @@
 use windows::Win32::System::Services;
-use windows::Win32::System::Services::SERVICE_STATUS_CURRENT_STATE;
+use windows::Win32::System::Services::{SERVICE_STATUS, SERVICE_STATUS_CURRENT_STATE};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ServiceState {
@@ -28,12 +28,12 @@ impl From<SERVICE_STATUS_CURRENT_STATE> for ServiceState {
 }
 
 pub struct ServiceStatus {
-    _inner: Services::SERVICE_STATUS,
+    _inner: SERVICE_STATUS,
     pub current_state: ServiceState,
 }
 
 impl ServiceStatus {
-    pub fn new(status: Services::SERVICE_STATUS) -> Self {
+    pub fn new(status: SERVICE_STATUS) -> Self {
         Self {
             _inner: status,
             current_state: ServiceState::from(status.dwCurrentState),
