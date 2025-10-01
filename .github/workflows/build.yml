@@ -32,7 +32,9 @@ jobs:
         run: scripts\setup.bat
 
       - name: Install Inno Setup
-        run: winget install --id JRSoftware.InnoSetup -e -s winget
+        run: |
+          winget install --id JRSoftware.InnoSetup --version 6.5.4 -e -s winget
+          innosetup-6.5.4.exe /verysilent
 
       - name: Build utility
         run: cargo build --release -p utility --target ${{ matrix.target }}
