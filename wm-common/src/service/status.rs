@@ -27,6 +27,7 @@ impl From<SERVICE_STATUS_CURRENT_STATE> for ServiceState {
     }
 }
 
+#[derive(Debug)]
 pub struct ServiceStatus {
     _inner: SERVICE_STATUS,
     pub current_state: ServiceState,

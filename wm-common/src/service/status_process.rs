@@ -28,6 +28,7 @@ impl From<ENUM_SERVICE_TYPE> for ServiceType {
     }
 }
 
+#[derive(Debug)]
 pub struct ServiceStatusProcess {
     _inner: SERVICE_STATUS_PROCESS,
 

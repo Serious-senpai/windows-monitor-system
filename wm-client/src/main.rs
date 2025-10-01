@@ -105,7 +105,7 @@ async fn async_main(
             let scm = ServiceManager::new(SC_MANAGER_ALL_ACCESS)?;
             scm.create_service(
                 &to_c_string(configuration.service_name.clone()),
-                &to_c_string(executable_path.display().to_string()),
+                &to_c_string(format!("{} start", executable_path.display())),
             )?;
 
             // let password = _read_password("Administrator password (hidden)>");
@@ -145,6 +145,7 @@ async fn async_main(
                 let scm = ServiceManager::new(SC_MANAGER_ALL_ACCESS)?;
                 let status =
                     scm.query_service_status(&to_c_string(configuration.service_name.clone()))?;
+                info!("Service status: {status:?}");
                 if status.current_state != ServiceState::StartPending {
                     Err(RuntimeError::new(format!(
                         "Invalid state {:?}",
