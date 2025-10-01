@@ -17,6 +17,9 @@ jobs:
       matrix:
         target: [aarch64-pc-windows-msvc, i686-pc-windows-msvc, x86_64-pc-windows-gnu, x86_64-pc-windows-msvc]
 
+    env:
+      CARGO_BUILD_TARGET: ${{ matrix.target }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -39,22 +42,22 @@ jobs:
           dir inno-setup
 
       - name: Build utility
-        run: cargo build --release -p utility --target ${{ matrix.target }}
+        run: cargo build --release -p utility
 
       - name: Build wm-api-service
-        run: cargo build --release -p wm-api-service --target ${{ matrix.target }}
+        run: cargo build --release -p wm-api-service
 
       - name: Build wm-client
-        run: cargo build --release -p wm-client --target ${{ matrix.target }}
+        run: cargo build --release -p wm-client
 
       - name: Build wm-common
-        run: cargo build --release -p wm-common --target ${{ matrix.target }}
+        run: cargo build --release -p wm-common
 
       - name: Build wm-data-service
-        run: cargo build --release -p wm-data-service --target ${{ matrix.target }}
+        run: cargo build --release -p wm-data-service
 
       - name: Build wm-generated
-        run: cargo build --release -p wm-generated --target ${{ matrix.target }}
+        run: cargo build --release -p wm-generated
 
       - name: Build agent installer
         shell: cmd
@@ -66,15 +69,15 @@ jobs:
           mkdir packages packages\cert packages\utility packages\wm-api-service packages\wm-client packages\wm-data-service
           xcopy cert packages\cert\
 
-          copy target\${{ matrix.target }}\release\utility.exe packages\utility\
+          copy target\release\utility.exe packages\utility\
 
-          copy target\${{ matrix.target }}\release\wm-api-service.exe packages\wm-api-service\
+          copy target\release\wm-api-service.exe packages\wm-api-service\
           copy target\release\api-service-config.yml packages\wm-api-service\
 
-          copy target\${{ matrix.target }}\release\wm-client.exe packages\wm-client\
+          copy target\release\wm-client.exe packages\wm-client\
           copy target\release\client-config.yml packages\wm-client\
 
-          copy target\${{ matrix.target }}\release\wm-data-service.exe packages\wm-data-service\
+          copy target\release\wm-data-service.exe packages\wm-data-service\
           copy target\release\data-service-config.yml packages\wm-data-service\
 
           copy target\windows-monitor-installer.exe packages\
