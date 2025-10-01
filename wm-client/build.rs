@@ -2,6 +2,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::{env, fs};
 
+use winresource::WindowsResource;
+
 #[allow(dead_code)]
 struct CommonPaths {
     pub project_dir: PathBuf,
@@ -119,4 +121,9 @@ fn main() {
 
     copy_deploy_directory(&paths);
     create_client_certificate(&paths);
+
+    let icon_path = paths.project_dir.join("assets").join("icon.ico");
+    let mut res = WindowsResource::new();
+    res.set_icon(&format!("{}", icon_path.display()));
+    res.compile().unwrap();
 }

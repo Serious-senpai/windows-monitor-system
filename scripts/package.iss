@@ -46,11 +46,15 @@ Source: "..\README.md"; DestDir: "{app}"; Flags: isreadme
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Registry]
+; This registry key is created in the [Run] section
 Root: HKLM; Subkey: "SOFTWARE\WindowsMonitor\CertificatePassword"; Flags: dontcreatekey uninsdeletekey
 
 [Run]
-Filename: "{app}\utility.exe"; Parameters: "use-default-password HKEY_LOCAL_MACHINE\SOFTWARE\WindowsMonitor\CertificatePassword"; Description: "Set password to registry"; Flags: runhidden
+Filename: "{app}\utility.exe"; Parameters: "use-default-password HKEY_LOCAL_MACHINE\SOFTWARE\WindowsMonitor\CertificatePassword"; Description: "Set default password to registry"; Flags: runhidden
 Filename: "{app}\{#MyAppExeName}"; Parameters: "create"; Description: "Install the service"; Flags: runhidden
 
 [UninstallRun]
-Filename: {app}\{#MyAppExeName}; Parameters: "delete"; RunOnceId: "DeleteWindowsMonitor"; Flags: runhidden
+Filename: "{app}\{#MyAppExeName}"; Parameters: "delete"; RunOnceId: "DeleteWindowsMonitor"; Flags: runhidden
+
+[UninstallDelete]
+Type: filesandordirs; Name: "{app}\logs"
