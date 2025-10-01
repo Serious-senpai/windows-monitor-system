@@ -1,4 +1,3 @@
-use std::env;
 use std::error::Error;
 use std::fs::File as BlockingFile;
 use std::io::{Write, stdout};
@@ -6,11 +5,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{env, panic};
 
 use async_compression::tokio::write::ZstdDecoder;
 use clap::Parser;
 use config_file::FromConfigFile;
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 use mimalloc::MiMalloc;
 use tokio::runtime::Builder;
 use tokio::time::sleep;
@@ -45,6 +45,12 @@ fn _read_password(prompt: &str) -> String {
 }
 
 fn main() {
+    let original_panic_hook = panic::take_hook();
+    panic::set_hook(Box::new(move |p| {
+        error!("Panic: {p}");
+        original_panic_hook(p);
+    }));
+
     let arguments = Arguments::parse();
     let executable_path = env::current_exe().expect("Failed to get current executable path");
     let app_directory = executable_path
@@ -201,14 +207,21 @@ async fn async_main(
             let scm = ServiceManager::new(SC_MANAGER_ALL_ACCESS)?;
             scm.stop_service(&to_c_string(configuration.service_name.clone()))?;
 
-            while let Ok(status) =
-                scm.query_service_status(&to_c_string(configuration.service_name.clone()))
-            {
-                if status.current_state == ServiceState::Stopped {
-                    break;
-                }
+            loop {
+                match scm.query_service_status(&to_c_string(configuration.service_name.clone())) {
+                    Ok(status) => {
+                        if status.current_state == ServiceState::Stopped {
+                            info!("Service stopped");
+                            break;
+                        }
 
-                sleep(Duration::from_millis(500)).await;
+                        sleep(Duration::from_millis(500)).await;
+                    }
+                    Err(e) => {
+                        error!("Failed to query service status: {e}");
+                        break;
+                    }
+                }
             }
 
             info!("Done");
