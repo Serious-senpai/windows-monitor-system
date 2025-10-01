@@ -57,7 +57,8 @@ jobs:
         run: cargo build --release -p wm-generated --target ${{ matrix.target }}
 
       - name: Build agent installer
-        run: iscc scripts\package.iss
+        shell: cmd
+        run: inno-setup\iscc.exe scripts\package.iss
 
       - name: Package executables
         shell: cmd
