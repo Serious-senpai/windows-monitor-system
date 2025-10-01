@@ -61,7 +61,9 @@ jobs:
 
       - name: Build agent installer
         shell: cmd
-        run: inno-setup\iscc.exe scripts\package.iss
+        run: |
+          dir
+          inno-setup\iscc.exe scripts\package.iss
 
       - name: Package executables
         shell: cmd
