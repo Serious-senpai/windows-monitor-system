@@ -31,7 +31,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 DisableProgramGroupPage=yes
 ;PrivilegesRequired=lowest
 OutputDir=..\target\
-OutputBaseFilename=windows-monitor
+OutputBaseFilename=windows-monitor-installer
 SolidCompression=yes
 WizardStyle=modern
 

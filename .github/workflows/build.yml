@@ -31,6 +31,9 @@ jobs:
       - name: Setup workspace
         run: scripts\setup.bat
 
+      - name: Install Inno Setup
+        run: winget install --id JRSoftware.InnoSetup -e -s winget
+
       - name: Build utility
         run: cargo build --release -p utility --target ${{ matrix.target }}
 
@@ -49,6 +52,9 @@ jobs:
       - name: Build wm-generated
         run: cargo build --release -p wm-generated --target ${{ matrix.target }}
 
+      - name: Build agent installer
+        run: iscc scripts\package.iss
+
       - name: Package executables
         shell: cmd
         run: |
@@ -65,6 +71,8 @@ jobs:
 
           copy target\${{ matrix.target }}\release\wm-data-service.exe packages\wm-data-service\
           copy target\release\data-service-config.yml packages\wm-data-service\
+
+          copy target\windows-monitor-installer.exe packages\
 
           tree /f packages
 
