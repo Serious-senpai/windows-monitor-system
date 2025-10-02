@@ -21,7 +21,7 @@ lapin = { workspace = true }
 log = { workspace = true }
 rustls = "^0.23.31"
 rustls-pemfile = "^2.2.0"
-rustls-webpki = "^0.103.6"
+rustls-webpki = "^0.103.7"
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
