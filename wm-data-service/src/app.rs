@@ -24,7 +24,7 @@ impl App {
     async fn _initialize_rabbitmq(
         &self,
     ) -> Result<Arc<lapin::Channel>, Box<dyn Error + Send + Sync>> {
-        Ok(Arc::new(
+        let rabbitmq = Arc::new(
             lapin::Connection::connect(
                 self._config.rabbitmq.host.as_str(),
                 lapin::ConnectionProperties::default()
@@ -33,7 +33,23 @@ impl App {
             .await?
             .create_channel()
             .await?,
-        ))
+        );
+        rabbitmq
+            .queue_declare(
+                "events",
+                QueueDeclareOptions {
+                    passive: false,
+                    durable: true,
+                    exclusive: false,
+                    auto_delete: false,
+                    nowait: false,
+                },
+                FieldTable::default(),
+            )
+            .await?;
+        info!("Declared events RabbitMQ queue");
+
+        Ok(rabbitmq)
     }
 
     pub fn new(config: Arc<Configuration>) -> Result<Arc<Self>, Box<dyn Error + Send + Sync>> {
@@ -99,21 +115,6 @@ impl App {
 
         if let Some(rabbitmq) = rabbitmq {
             info!("Connected to RabbitMQ");
-
-            rabbitmq
-                .queue_declare(
-                    "events",
-                    QueueDeclareOptions {
-                        passive: false,
-                        durable: true,
-                        exclusive: false,
-                        auto_delete: false,
-                        nowait: false,
-                    },
-                    FieldTable::default(),
-                )
-                .await?;
-            info!("Declared events RabbitMQ queue");
 
             rabbitmq
                 .basic_qos(
