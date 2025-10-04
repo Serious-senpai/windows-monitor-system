@@ -23,7 +23,7 @@ reqwest = { workspace = true }
 rpassword = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sysinfo = "^0.37.1"
+sysinfo = "^0.37.2"
 tokio = { workspace = true }
 url = { workspace = true }
 windows = { workspace = true }
