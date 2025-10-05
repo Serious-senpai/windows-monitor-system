@@ -32,7 +32,10 @@ jobs:
           cache: false
 
       - name: Setup workspace
-        run: scripts\setup.bat
+        run: |
+          scripts\setup.bat
+          dir
+          type .cargo\config.toml
 
       - name: Install Inno Setup
         shell: cmd
