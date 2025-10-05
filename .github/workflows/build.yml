@@ -42,22 +42,22 @@ jobs:
           dir inno-setup
 
       - name: Build utility
-        run: cargo build --release -p utility --target ${{ matrix.target }}
+        run: cargo build --release -p utility --target ${{ matrix.target }} -v
 
       - name: Build wm-api-service
-        run: cargo build --release -p wm-api-service --target ${{ matrix.target }}
+        run: cargo build --release -p wm-api-service --target ${{ matrix.target }} -v
 
       - name: Build wm-client
-        run: cargo build --release -p wm-client --target ${{ matrix.target }}
+        run: cargo build --release -p wm-client --target ${{ matrix.target }} -v
 
       - name: Build wm-common
-        run: cargo build --release -p wm-common --target ${{ matrix.target }}
+        run: cargo build --release -p wm-common --target ${{ matrix.target }} -v
 
       - name: Build wm-data-service
-        run: cargo build --release -p wm-data-service --target ${{ matrix.target }}
+        run: cargo build --release -p wm-data-service --target ${{ matrix.target }} -v
 
       - name: Build wm-generated
-        run: cargo build --release -p wm-generated --target ${{ matrix.target }}
+        run: cargo build --release -p wm-generated --target ${{ matrix.target }} -v
 
       - name: Build agent installer
         shell: cmd
