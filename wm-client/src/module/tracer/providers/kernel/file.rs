@@ -13,6 +13,7 @@ use windows::Win32::System::Diagnostics::Etw::{
 use wm_common::error::RuntimeError;
 use wm_common::schema::event::{Event, EventData};
 
+use crate::module::tracer::providers::fast_parser::FastParser;
 use crate::module::tracer::providers::{KernelProviderWrapper, ProviderWrapper};
 
 pub struct FileProviderWrapper {
@@ -61,19 +62,32 @@ impl ProviderWrapper for FileProviderWrapper {
     ) -> Result<Option<Event>, Box<dyn Error + Send + Sync>> {
         match schema_locator.event_schema(record) {
             Ok(schema) => {
-                let parser = Parser::create(record, &schema);
+                let mut fast = FastParser::new(record);
                 match record.opcode() {
                     0 | 32 | 35 => {
-                        let file_object = parser
-                            .try_parse::<Pointer>("FileObject")
-                            .map_err(RuntimeError::from)?;
-                        let file_name = parser
-                            .try_parse::<String>("FileName")
-                            .map_err(RuntimeError::from)?;
+                        let file_object = fast.try_read::<usize>()?;
+                        let file_name = fast.try_read::<String>()?;
+
+                        #[cfg(debug_assertions)]
+                        {
+                            let parser = Parser::create(record, &schema);
+                            assert_eq!(
+                                file_object,
+                                *parser
+                                    .try_parse::<Pointer>("FileObject")
+                                    .map_err(RuntimeError::from)?
+                            );
+                            assert_eq!(
+                                file_name,
+                                parser
+                                    .try_parse::<String>("FileName")
+                                    .map_err(RuntimeError::from)?
+                            );
+                        }
 
                         match self._mapping.try_lock() {
                             Some(mut mapping) => {
-                                mapping.put(*file_object, file_name.clone());
+                                mapping.put(file_object, file_name.clone());
                             }
                             None => Err(RuntimeError::new(
                                 "File I/O mapping mutex should never block",
@@ -92,26 +106,53 @@ impl ProviderWrapper for FileProviderWrapper {
                         }
                     }
                     64 => {
-                        let file_object = parser
-                            .try_parse::<Pointer>("FileObject")
-                            .map_err(RuntimeError::from)?;
-                        let options = parser
-                            .try_parse::<u32>("CreateOptions")
-                            .map_err(RuntimeError::from)?;
-                        let attributes = parser
-                            .try_parse::<u32>("FileAttributes")
-                            .map_err(RuntimeError::from)?;
-                        let share_access = parser
-                            .try_parse::<u32>("ShareAccess")
-                            .map_err(RuntimeError::from)?;
-                        let open_path = parser
-                            .try_parse::<String>("OpenPath")
-                            .map_err(RuntimeError::from)?;
+                        fast.skip(8);
+                        let file_object = fast.try_read::<usize>()?;
+                        fast.skip(4);
+                        let options = fast.try_read::<u32>()?;
+                        let attributes = fast.try_read::<u32>()?;
+                        let share_access = fast.try_read::<u32>()?;
+                        let open_path = fast.try_read::<String>()?;
+
+                        #[cfg(debug_assertions)]
+                        {
+                            let parser = Parser::create(record, &schema);
+                            assert_eq!(
+                                file_object,
+                                *parser
+                                    .try_parse::<Pointer>("FileObject")
+                                    .map_err(RuntimeError::from)?
+                            );
+                            assert_eq!(
+                                options,
+                                parser
+                                    .try_parse::<u32>("CreateOptions")
+                                    .map_err(RuntimeError::from)?
+                            );
+                            assert_eq!(
+                                attributes,
+                                parser
+                                    .try_parse::<u32>("FileAttributes")
+                                    .map_err(RuntimeError::from)?
+                            );
+                            assert_eq!(
+                                share_access,
+                                parser
+                                    .try_parse::<u32>("ShareAccess")
+                                    .map_err(RuntimeError::from)?
+                            );
+                            assert_eq!(
+                                open_path,
+                                parser
+                                    .try_parse::<String>("OpenPath")
+                                    .map_err(RuntimeError::from)?
+                            );
+                        }
 
                         Ok(Some(Event::new(
                             record,
                             EventData::FileCreate {
-                                file_object: *file_object,
+                                file_object,
                                 options,
                                 attributes,
                                 share_access,
@@ -120,26 +161,49 @@ impl ProviderWrapper for FileProviderWrapper {
                         )))
                     }
                     69 | 70 | 71 | 74 | 75 => {
-                        let file_object = parser
-                            .try_parse::<Pointer>("FileObject")
-                            .map_err(RuntimeError::from)?;
-                        let file_key = parser
-                            .try_parse::<Pointer>("FileKey")
-                            .map_err(RuntimeError::from)?;
-                        let extra_info = parser
-                            .try_parse::<Pointer>("ExtraInfo")
-                            .map_err(RuntimeError::from)?;
-                        let info_class = parser
-                            .try_parse::<u32>("InfoClass")
-                            .map_err(RuntimeError::from)?;
+                        fast.skip(8);
+                        let file_object = fast.try_read::<usize>()?;
+                        let file_key = fast.try_read::<usize>()?;
+                        let extra_info = fast.try_read::<usize>()?;
+                        fast.skip(4);
+                        let info_class = fast.try_read::<u32>()?;
+
+                        #[cfg(debug_assertions)]
+                        {
+                            let parser = Parser::create(record, &schema);
+                            assert_eq!(
+                                file_object,
+                                *parser
+                                    .try_parse::<Pointer>("FileObject")
+                                    .map_err(RuntimeError::from)?
+                            );
+                            assert_eq!(
+                                file_key,
+                                *parser
+                                    .try_parse::<Pointer>("FileKey")
+                                    .map_err(RuntimeError::from)?
+                            );
+                            assert_eq!(
+                                extra_info,
+                                *parser
+                                    .try_parse::<Pointer>("ExtraInfo")
+                                    .map_err(RuntimeError::from)?
+                            );
+                            assert_eq!(
+                                info_class,
+                                parser
+                                    .try_parse::<u32>("InfoClass")
+                                    .map_err(RuntimeError::from)?
+                            );
+                        }
 
                         match self._mapping.try_lock() {
                             Some(mut mapping) => match mapping.get(&file_key).cloned() {
                                 Some(file_path) => Ok(Some(Event::new(
                                     record,
                                     EventData::FileInfo {
-                                        file_object: *file_object,
-                                        extra_info: *extra_info,
+                                        file_object,
+                                        extra_info,
                                         info_class,
                                         file_path,
                                     },
@@ -152,21 +216,48 @@ impl ProviderWrapper for FileProviderWrapper {
                         }
                     }
                     67 | 68 => {
-                        let offset = parser
-                            .try_parse::<u64>("Offset")
-                            .map_err(RuntimeError::from)?;
-                        let file_object = parser
-                            .try_parse::<Pointer>("FileObject")
-                            .map_err(RuntimeError::from)?;
-                        let file_key = parser
-                            .try_parse::<Pointer>("FileKey")
-                            .map_err(RuntimeError::from)?;
-                        let size = parser
-                            .try_parse::<u32>("IoSize")
-                            .map_err(RuntimeError::from)?;
-                        let flags = parser
-                            .try_parse::<u32>("IoFlags")
-                            .map_err(RuntimeError::from)?;
+                        let offset = fast.try_read::<u64>()?;
+                        fast.skip(8);
+                        let file_object = fast.try_read::<usize>()?;
+                        let file_key = fast.try_read::<usize>()?;
+                        fast.skip(4);
+                        let size = fast.try_read::<u32>()?;
+                        let flags = fast.try_read::<u32>()?;
+
+                        #[cfg(debug_assertions)]
+                        {
+                            let parser = Parser::create(record, &schema);
+                            assert_eq!(
+                                offset,
+                                parser
+                                    .try_parse::<u64>("Offset")
+                                    .map_err(RuntimeError::from)?
+                            );
+                            assert_eq!(
+                                file_object,
+                                *parser
+                                    .try_parse::<Pointer>("FileObject")
+                                    .map_err(RuntimeError::from)?
+                            );
+                            assert_eq!(
+                                file_key,
+                                *parser
+                                    .try_parse::<Pointer>("FileKey")
+                                    .map_err(RuntimeError::from)?
+                            );
+                            assert_eq!(
+                                size,
+                                parser
+                                    .try_parse::<u32>("IoSize")
+                                    .map_err(RuntimeError::from)?
+                            );
+                            assert_eq!(
+                                flags,
+                                parser
+                                    .try_parse::<u32>("IoFlags")
+                                    .map_err(RuntimeError::from)?
+                            );
+                        }
 
                         match self._mapping.try_lock() {
                             Some(mut mapping) => match mapping.get(&file_key).cloned() {
@@ -174,7 +265,7 @@ impl ProviderWrapper for FileProviderWrapper {
                                     record,
                                     EventData::FileReadWrite {
                                         offset,
-                                        file_object: *file_object,
+                                        file_object,
                                         size,
                                         flags,
                                         file_path,
