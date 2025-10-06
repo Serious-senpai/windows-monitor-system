@@ -11,7 +11,7 @@ use async_compression::tokio::write::ZstdDecoder;
 use clap::Parser;
 use config_file::FromConfigFile;
 use log::{debug, error, info, warn};
-use mimalloc::MiMalloc;
+// use mimalloc::MiMalloc;
 use tokio::runtime::Builder;
 use tokio::time::sleep;
 use tokio::{fs, io, signal, task};
@@ -28,8 +28,8 @@ use wm_common::service::service_manager::ServiceManager;
 use wm_common::service::status::ServiceState;
 use wm_common::utils::to_c_string;
 
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
+// #[global_allocator]
+// static GLOBAL: MiMalloc = MiMalloc;
 
 fn _open_registry_password(config: &Configuration) -> RegistryKey {
     RegistryKey::new(&to_c_string(config.password_registry_key.clone()))

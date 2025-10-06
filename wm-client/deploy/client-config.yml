@@ -1,3 +1,8 @@
+trace:
+  buffer_size: 1024
+  min_buffer: 4
+  max_buffer: 8
+
 server: https://localhost:12110
 zstd_compression_level: 3
 system_refresh_interval_seconds: 3.0

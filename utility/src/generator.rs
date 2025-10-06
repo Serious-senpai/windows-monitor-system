@@ -35,7 +35,7 @@ impl EventGenerator {
                     usage: (index as f64 % 100.0).max(0.1),
                 },
                 format!("x86_64-{}", index % 10),
-                format!("DESKTOP-{:06X}", index),
+                format!("DESKTOP-{index:06X}"),
             ));
 
             let event_data = match index % 7 {
@@ -44,29 +44,29 @@ impl EventGenerator {
                     options: index as u32,
                     attributes: 0x80 + (index as u32 % 256),
                     share_access: index as u32 % 8,
-                    open_path: format!("C:\\temp\\file_{}.txt", index),
+                    open_path: format!("C:\\temp\\file_{index}.txt"),
                 },
                 1 => EventData::FileInfo {
                     file_object: 0x2000 + index,
                     extra_info: 0x3000 + index,
                     info_class: (index as u32 % 50) + 1,
-                    file_path: format!("C:\\data\\info_{}.dat", index),
+                    file_path: format!("C:\\data\\info_{index}.dat"),
                 },
                 2 => EventData::FileReadWrite {
                     offset: (index as u64) * 1024,
                     file_object: 0x4000 + index,
                     size: (index as u32 % 8192) + 1,
                     flags: index as u32 % 16,
-                    file_path: format!("C:\\logs\\rw_{}.log", index),
+                    file_path: format!("C:\\logs\\rw_{index}.log"),
                 },
                 3 => EventData::FileDelete {
-                    file_path: format!("C:\\temp\\deleted_{}.tmp", index),
+                    file_path: format!("C:\\temp\\deleted_{index}.tmp"),
                 },
                 4 => EventData::Image {
                     image_base: 0x10000000 + (index * 0x1000),
                     image_size: 0x100000 + (index * 0x1000),
                     image_checksum: (index as u32).wrapping_mul(31),
-                    file_name: format!("C:\\Program Files\\app_{}.dll", index),
+                    file_name: format!("C:\\Program Files\\app_{index}.dll"),
                 },
                 5 => EventData::Process {
                     unique_process_key: 0x5000 + index,
@@ -75,20 +75,20 @@ impl EventGenerator {
                     session_id: index as u32 % 10,
                     exit_status: (index as i32) % 256,
                     directory_table_base: 0x6000 + index,
-                    image_file_name: format!("process_{}.exe", index),
-                    command_line: format!("process_{}.exe --arg{}", index, index),
+                    image_file_name: format!("process_{index}.exe"),
+                    command_line: format!("process_{index}.exe --arg{index}"),
                 },
                 _ => EventData::Registry {
                     initial_time: 132000000000000000 + (index as i64 * 10000000),
                     status: index,
                     index: index as u32,
                     key_handle: 0x7000 + index,
-                    key_name: format!("HKEY_LOCAL_MACHINE\\SOFTWARE\\Test\\Key_{}", index),
+                    key_name: format!("HKEY_LOCAL_MACHINE\\SOFTWARE\\Test\\Key_{index}"),
                 },
             };
 
             let event = Event {
-                guid: format!("12345678-1234-1234-1234-{:012}", index),
+                guid: format!("12345678-1234-1234-1234-{index:012}"),
                 raw_timestamp: 132000000000000000 + (index as i64 * 10000000),
                 process_id: (index as u32 % 30000) + 1000,
                 thread_id: (index as u32 % 100) + 1,

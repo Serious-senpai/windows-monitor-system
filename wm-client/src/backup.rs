@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use async_compression::tokio::write::ZstdEncoder;
-use log::{error, info, warn};
+use log::{error, info};
 use tokio::fs;
 use tokio::io::{AsyncWriteExt, BufWriter};
 use tokio::sync::{Mutex, SetOnce};
@@ -108,10 +108,9 @@ impl Backup {
                 continue;
             }
 
-            info!("Sending backup {}", entry.path().display());
-
-            match file::open_exclusively(entry.path()) {
-                Ok(file) => match http.api().post("/backup").body(file).send().await {
+            if let Ok(file) = file::open_exclusively(entry.path()) {
+                info!("Sending backup {}", entry.path().display());
+                match http.api().post("/backup").body(file).send().await {
                     Ok(response) => {
                         if response.status() == 204 {
                             info!("Uploaded backup {}", entry.path().display());
@@ -135,12 +134,6 @@ impl Backup {
                             entry.path().display()
                         );
                     }
-                },
-                Err(e) => {
-                    warn!(
-                        "Unable to open backup {} for reading. Skipping: {e}",
-                        entry.path().display()
-                    );
                 }
             }
         }

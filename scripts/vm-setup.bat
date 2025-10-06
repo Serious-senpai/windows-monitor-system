@@ -14,6 +14,7 @@ echo echo Got root of repository: %%root%%>>migrate.bat
 echo echo Copying necessary files from %%root%% to %%cd%%>>migrate.bat
 
 echo @echo on>>migrate.bat
+echo copy /y %%root%%\scripts\data-collector.bat data-collector.bat>>migrate.bat
 echo copy /y %%root%%\scripts\events.bat events.bat>>migrate.bat
 echo copy /y %%root%%\target\release\utility.exe utility.exe>>migrate.bat
 echo copy /y %%root%%\target\release\wm-client.exe wm-client.exe>>migrate.bat

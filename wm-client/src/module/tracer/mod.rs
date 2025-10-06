@@ -93,7 +93,9 @@ impl EventTracer {
     }
 
     fn _kernel_trace(self: &Arc<Self>) -> TraceBuilder<KernelTrace> {
-        let mut builder = KernelTrace::new().named(self._config.trace_name.kernel.clone());
+        let mut builder = KernelTrace::new()
+            .named(self._config.trace_name.kernel.clone())
+            .set_trace_properties(self._config.trace.to_trace_properties());
         let wrappers: Vec<Arc<dyn KernelProviderWrapper>> = vec![
             Arc::new(FileProviderWrapper::new(1000)),
             Arc::new(ImageProviderWrapper {}),
@@ -117,7 +119,9 @@ impl EventTracer {
     }
 
     fn _user_trace(self: &Arc<Self>) -> TraceBuilder<UserTrace> {
-        let mut builder = UserTrace::new().named(self._config.trace_name.user.clone());
+        let mut builder = UserTrace::new()
+            .named(self._config.trace_name.user.clone())
+            .set_trace_properties(self._config.trace.to_trace_properties());
         let wrappers: Vec<Arc<dyn UserProviderWrapper>> = vec![
             // Add user provider wrappers here as needed
         ];

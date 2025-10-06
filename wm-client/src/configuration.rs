@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::path::PathBuf;
+use std::time::Duration;
 
+use ferrisetw::trace::{LoggingMode, TraceProperties};
 use serde::{Deserialize, Serialize};
 use url::Url;
 use wm_common::logger::LogLevel;
@@ -34,6 +36,26 @@ pub struct TraceName {
 }
 
 #[derive(Deserialize, Serialize)]
+pub struct TraceSettings {
+    pub buffer_size: u32,
+    pub min_buffer: u32,
+    pub max_buffer: u32,
+}
+
+impl TraceSettings {
+    pub fn to_trace_properties(&self) -> TraceProperties {
+        // https://learn.microsoft.com/en-us/windows/win32/api/evntrace/ns-evntrace-event_trace_properties
+        TraceProperties {
+            buffer_size: self.buffer_size,
+            min_buffer: self.min_buffer,
+            max_buffer: self.max_buffer,
+            flush_timer: Duration::from_secs(1),
+            log_file_mode: LoggingMode::EVENT_TRACE_REAL_TIME_MODE,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize)]
 pub struct Configuration {
     #[serde(skip, default = "_service_name")]
     pub service_name: String,
@@ -41,6 +63,8 @@ pub struct Configuration {
     pub trace_name: TraceName,
     #[serde(skip, default = "_password_registry_key")]
     pub password_registry_key: String,
+
+    pub trace: TraceSettings,
     pub server: Url,
     pub zstd_compression_level: i32,
     pub system_refresh_interval_seconds: f64,
