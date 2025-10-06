@@ -27,6 +27,7 @@ jobs:
           toolchain: 1.89
           target: ${{ matrix.target }}
           cache: false
+          rustflags: ""
 
       - name: Setup workspace
         run: |
@@ -42,7 +43,6 @@ jobs:
           dir inno-setup
 
       - name: Build workspace
-        working-directory: ${{ github.workspace }}
         run: cargo build --release --target ${{ matrix.target }} -v
 
       - name: Build agent installer
