@@ -17,9 +17,6 @@ jobs:
       matrix:
         target: [aarch64-pc-windows-msvc, i686-pc-windows-msvc, x86_64-pc-windows-gnu, x86_64-pc-windows-msvc]
 
-    env:
-      CARGO_BUILD_TARGET: ${{ matrix.target }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
