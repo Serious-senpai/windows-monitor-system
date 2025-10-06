@@ -81,7 +81,7 @@ impl EventGenerator {
                 _ => EventData::Registry {
                     initial_time: 132000000000000000 + (index as i64 * 10000000),
                     status: index,
-                    index: index as u32,
+                    // index: index as u32,
                     key_handle: 0x7000 + index,
                     key_name: format!("HKEY_LOCAL_MACHINE\\SOFTWARE\\Test\\Key_{index}"),
                 },

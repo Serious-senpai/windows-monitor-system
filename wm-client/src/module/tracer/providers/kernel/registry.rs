@@ -7,6 +7,7 @@ use ferrisetw::{EventRecord, SchemaLocator};
 use wm_common::error::RuntimeError;
 use wm_common::schema::event::{Event, EventData};
 
+use crate::module::tracer::providers::fast_parser::FastParser;
 use crate::module::tracer::providers::{KernelProviderWrapper, ProviderWrapper};
 
 pub struct RegistryProviderWrapper;
@@ -30,30 +31,55 @@ impl ProviderWrapper for RegistryProviderWrapper {
     ) -> Result<Option<Event>, Box<dyn Error + Send + Sync>> {
         match schema_locator.event_schema(record) {
             Ok(schema) => {
-                let parser = Parser::create(record, &schema);
-                let initial_time = parser
-                    .try_parse::<i64>("InitialTime")
-                    .map_err(RuntimeError::from)?;
-                let status = parser
-                    .try_parse::<Pointer>("Status")
-                    .map_err(RuntimeError::from)?;
-                let index = parser
-                    .try_parse::<u32>("Index")
-                    .map_err(RuntimeError::from)?;
-                let key_handle = parser
-                    .try_parse::<Pointer>("KeyHandle")
-                    .map_err(RuntimeError::from)?;
-                let key_name = parser
-                    .try_parse::<String>("KeyName")
-                    .map_err(RuntimeError::from)?;
+                let mut fast = FastParser::new(record);
+                let initial_time = fast.try_read::<i64>()?;
+                let status = fast.try_read::<usize>()?;
+                // let index = 0;
+                let key_handle = fast.try_read::<usize>()?;
+                let key_name = fast.try_read::<String>()?;
+
+                #[cfg(debug_assertions)]
+                {
+                    let parser = Parser::create(record, &schema);
+                    assert_eq!(
+                        initial_time,
+                        parser
+                            .try_parse::<i64>("InitialTime")
+                            .map_err(RuntimeError::from)?
+                    );
+                    assert_eq!(
+                        status,
+                        *parser
+                            .try_parse::<Pointer>("Status")
+                            .map_err(RuntimeError::from)?
+                    );
+                    // assert_eq!(
+                    //     index,
+                    //     parser
+                    //         .try_parse::<u32>("Index")
+                    //         .map_err(RuntimeError::from)?
+                    // );
+                    assert_eq!(
+                        key_handle,
+                        *parser
+                            .try_parse::<Pointer>("KeyHandle")
+                            .map_err(RuntimeError::from)?
+                    );
+                    assert_eq!(
+                        key_name,
+                        parser
+                            .try_parse::<String>("KeyName")
+                            .map_err(RuntimeError::from)?
+                    );
+                }
 
                 Ok(Some(Event::new(
                     record,
                     EventData::Registry {
                         initial_time,
-                        status: *status,
-                        index,
-                        key_handle: *key_handle,
+                        status,
+                        // index,
+                        key_handle,
                         key_name,
                     },
                 )))
