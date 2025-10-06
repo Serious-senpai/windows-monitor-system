@@ -13,6 +13,7 @@ jobs:
     name: Benchmark resource usage
     runs-on: windows-latest
     strategy:
+      fail-fast: false
       matrix:
         profile: [debug, release]
 
@@ -42,7 +43,13 @@ jobs:
           sc query RabbitMQ
 
       - name: Build workspace
-        run: cargo build --${{ matrix.profile }}
+        shell: cmd
+        run: |
+          if "${{ matrix.profile }}" == "debug" (
+            cargo build
+          ) else (
+            cargo build --${{ matrix.profile }}
+          )
 
       - name: Setup data collector
         run: scripts\data-collector.bat create
