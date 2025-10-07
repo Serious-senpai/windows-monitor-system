@@ -17,7 +17,7 @@ config-file = { workspace = true }
 ferrisetw = { workspace = true }
 log = { workspace = true }
 lru = "^0.16.1"
-parking_lot = "^0.12.4"
+parking_lot = "^0.12.5"
 reqwest = { workspace = true }
 rpassword = { workspace = true }
 serde = { workspace = true }
