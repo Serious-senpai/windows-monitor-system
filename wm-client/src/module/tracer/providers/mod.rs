@@ -50,7 +50,7 @@ fn _callback_impl<T>(
                     });
 
                     if sender.try_send(data.clone()).is_err() {
-                        warn!("Message queue is full, backing up event to persistent file");
+                        // warn!("Message queue is full, backing up event to persistent file");
 
                         let backup = backup.clone();
                         tokio::spawn(async move {

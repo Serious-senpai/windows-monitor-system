@@ -49,7 +49,7 @@ impl TraceSettings {
             buffer_size: self.buffer_size,
             min_buffer: self.min_buffer,
             max_buffer: self.max_buffer,
-            flush_timer: Duration::from_secs(1),
+            flush_timer: Duration::from_secs(3),
             log_file_mode: LoggingMode::EVENT_TRACE_REAL_TIME_MODE,
         }
     }
