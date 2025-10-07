@@ -39,18 +39,21 @@ impl<'r> FastParser<'r> {
         use private::FastParserImpl;
         self._try_read_impl()
     }
-}
 
-mod private {
-    use wm_common::error::RuntimeError;
+    pub fn try_read_utf8(&mut self) -> Result<String, RuntimeError> {
+        let end = self
+            ._buffer
+            .iter()
+            .position(|c| *c == 0)
+            .unwrap_or(self._buffer.len());
 
-    pub trait FastParserImpl<T> {
-        fn _try_read_impl(&mut self) -> Result<T, RuntimeError>;
+        let s = String::from_utf8_lossy(&self._buffer[..end]).to_string();
+        self._buffer = &self._buffer[end + 1..];
+
+        Ok(s)
     }
-}
 
-impl private::FastParserImpl<String> for FastParser<'_> {
-    fn _try_read_impl(&mut self) -> Result<String, RuntimeError> {
+    pub fn try_read_utf16(&mut self) -> Result<String, RuntimeError> {
         let (prefix, aligned, _) = unsafe { self._buffer.align_to::<u16>() };
 
         if prefix.is_empty() {
@@ -61,26 +64,35 @@ impl private::FastParserImpl<String> for FastParser<'_> {
                 .unwrap_or(aligned.len());
 
             let s = String::from_utf16_lossy(&aligned[..end]);
-            let (_, buffer, _) = unsafe { aligned[end..].align_to::<u8>() };
+            let (_, buffer, _) = unsafe { aligned[end + 1..].align_to::<u8>() };
             self._buffer = buffer;
 
             Ok(s)
         } else {
             // Not properly aligned
-            let mut buf = Vec::with_capacity(self._buffer.len());
+            let mut buf = Vec::with_capacity(self._buffer.len() / 2);
             let mut index = 0;
-            for chunk in prefix.chunks_exact(2) {
+
+            for chunk in self._buffer.as_chunks::<2>().0 {
                 index += 2;
-                if chunk == [0, 0] {
+                if *chunk == [0, 0] {
                     break;
                 }
 
-                buf.push(u16::from_le_bytes([chunk[0], chunk[1]]));
+                buf.push(u16::from_le_bytes(*chunk));
             }
 
             self._buffer = &self._buffer[index..];
             Ok(String::from_utf16_lossy(&buf))
         }
+    }
+}
+
+mod private {
+    use wm_common::error::RuntimeError;
+
+    pub trait FastParserImpl<T> {
+        fn _try_read_impl(&mut self) -> Result<T, RuntimeError>;
     }
 }
 
@@ -108,3 +120,13 @@ _fast_parser_impl!(i16);
 _fast_parser_impl!(i32);
 _fast_parser_impl!(i64);
 _fast_parser_impl!(isize);
+
+#[macro_export]
+macro_rules! debug_parser {
+    ($parser:ident, $record:expr, $schema_locator:expr) => {
+        let schema = $schema_locator
+            .event_schema($record)
+            .map_err(RuntimeError::from)?;
+        let $parser = Parser::create($record, &schema);
+    };
+}
