@@ -10,7 +10,7 @@ use ferrisetw::provider::Provider;
 use ferrisetw::provider::kernel_providers::KernelProvider;
 use ferrisetw::trace::{KernelTrace, TraceBuilder};
 use ferrisetw::{EventRecord, GUID, SchemaLocator, UserTrace};
-use log::{debug, error, warn};
+use log::{debug, error};
 use parking_lot::Mutex as BlockingMutex;
 use tokio::sync::{Mutex, mpsc};
 use wm_common::schema::event::{CapturedEventRecord, Event};
@@ -50,7 +50,7 @@ fn _callback_impl<T>(
                     });
 
                     if sender.try_send(data.clone()).is_err() {
-                        // warn!("Message queue is full, backing up event to persistent file");
+                        debug!("Message queue is full, backing up event to persistent file");
 
                         let backup = backup.clone();
                         tokio::spawn(async move {
