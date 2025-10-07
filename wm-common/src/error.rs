@@ -2,6 +2,7 @@ use std::error::Error;
 use std::fmt;
 
 use ferrisetw::parser::ParserError;
+use ferrisetw::schema_locator::SchemaError;
 use windows::core;
 
 pub struct RuntimeError {
@@ -29,6 +30,12 @@ impl RuntimeError {
         Self {
             _message: message.into(),
         }
+    }
+}
+
+impl From<SchemaError> for RuntimeError {
+    fn from(error: SchemaError) -> Self {
+        Self::new(format!("Schema error: {error:?}"))
     }
 }
 

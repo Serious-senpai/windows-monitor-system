@@ -1,3 +1,4 @@
+pub mod fast_parser;
 pub mod kernel;
 pub mod user;
 

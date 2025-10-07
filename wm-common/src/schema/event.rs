@@ -63,7 +63,7 @@ pub enum EventData {
     Registry {
         initial_time: i64,
         status: usize,
-        index: u32,
+        // index: u32,
         key_handle: usize,
         key_name: String,
     },
