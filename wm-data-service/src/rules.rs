@@ -33,7 +33,7 @@ async fn _query_rule_toml(
     rule["rule_id"] = format!("custom-{old_rule_id}").into(); // Trick Kibana into thinking that this is not a prebuilt rule
     rule["references"] = references.into();
     rule["enabled"] = true.into();
-    rule["index"] = vec![".ds-events.windows-monitor-ecs-*"].into();
+    rule["index"] = vec!["events.windows-monitor-ecs"].into();
 
     // Field transform (possible bug in elastic/detection-rules?)
     if let Some(mut new_terms) = rule["new_terms"].as_object_mut().cloned() {

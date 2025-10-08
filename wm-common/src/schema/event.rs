@@ -410,6 +410,7 @@ impl CapturedEventRecord {
                 process.command_line = Some(vec![command_line.clone()]);
                 process.executable = Some(vec![image_file_name.clone()]);
                 process.exit_code = Some(i64::from(*exit_status));
+                process.name = Some(vec![image_file_name.clone()]);
                 process.parent = Some(parent);
                 process.pid = Some(i64::from(*process_id));
                 ecs.process = Some(process);
