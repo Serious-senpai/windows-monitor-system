@@ -10,8 +10,8 @@ use serde_json::json;
 use windows::Wdk::Storage::FileSystem::{FileAllocationInformation, FileEndOfFileInformation};
 use wm_generated::ecs::{
     ECS, ECS_Destination, ECS_Dll, ECS_Dll_CodeSignature, ECS_Event, ECS_File, ECS_Host,
-    ECS_Host_Cpu, ECS_Host_Os, ECS_Process, ECS_Process_Parent, ECS_Process_Thread, ECS_Registry,
-    ECS_Source,
+    ECS_Host_Cpu, ECS_Host_Os, ECS_Network, ECS_Process, ECS_Process_Parent, ECS_Process_Thread,
+    ECS_Registry, ECS_Source,
 };
 
 use crate::schema::ecs_converter::file_attributes;
@@ -477,17 +477,24 @@ impl CapturedEventRecord {
 
                 let mut source = ECS_Source::new();
                 source.address = Some(vec![saddr.to_string()]);
-                source.bytes = Some(i64::from(*size));
                 source.ip = Some(*saddr);
                 source.port = Some(i64::from(*sport));
                 ecs.source = Some(source);
 
                 let mut destination = ECS_Destination::new();
                 destination.address = Some(vec![daddr.to_string()]);
-                destination.bytes = Some(i64::from(*size));
                 destination.ip = Some(*daddr);
                 destination.port = Some(i64::from(*dport));
                 ecs.destination = Some(destination);
+
+                let mut network = ECS_Network::new();
+                network.bytes = Some(i64::from(*size));
+                network.transport = match self.event.opcode {
+                    10 | 11 => Some(vec!["udp".to_string()]),
+                    12 | 13 | 15 => Some(vec!["tcp".to_string()]),
+                    _ => None,
+                };
+                ecs.network = Some(network);
             }
         }
 
