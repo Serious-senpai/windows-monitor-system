@@ -33,19 +33,17 @@ pub fn initialize_logger<W>(level: LogLevel, writer: W) -> Result<(), SetLoggerE
 where
     W: Write + Send + 'static,
 {
+    let cfg = ConfigBuilder::new()
+        .set_location_level(LevelFilter::Error)
+        .set_time_offset_to_local()
+        .unwrap_or_else(|e| e)
+        .build();
+
     CombinedLogger::init(vec![
-        WriteLogger::new(
-            level.to_level_filter(),
-            ConfigBuilder::new()
-                .set_location_level(LevelFilter::Debug)
-                .build(),
-            writer,
-        ),
+        WriteLogger::new(level.to_level_filter(), cfg.clone(), writer),
         TermLogger::new(
             level.to_level_filter(),
-            ConfigBuilder::new()
-                .set_location_level(LevelFilter::Debug)
-                .build(),
+            cfg,
             TerminalMode::Stderr,
             ColorChoice::Auto,
         ),

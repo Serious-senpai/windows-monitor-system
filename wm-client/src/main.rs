@@ -146,7 +146,7 @@ async fn async_main(
                 Arc::new(Agent::async_new(configuration.clone(), app_directory, &password).await);
             let s_handle = if windows_service_detector::is_running_as_windows_service() == Ok(true)
             {
-                info!("Checking service {}", configuration.service_name);
+                info!("Checking service {:?}", configuration.service_name);
 
                 let scm = ServiceManager::new(SC_MANAGER_ALL_ACCESS)?;
                 let status =
@@ -155,11 +155,11 @@ async fn async_main(
                 if status.current_state != ServiceState::StartPending {
                     Err(RuntimeError::new(format!(
                         "Invalid state {:?}",
-                        status.current_state
+                        status.current_state,
                     )))?;
                 }
 
-                info!("Starting service {}", configuration.service_name);
+                info!("Starting service {:?}", configuration.service_name);
 
                 let agent = agent.clone();
                 Some(task::spawn_blocking(move || {

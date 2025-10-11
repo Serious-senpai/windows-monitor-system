@@ -6,8 +6,8 @@ use std::path::Path;
 use tokio::fs::File;
 use windows::Win32::Foundation::{GENERIC_ACCESS_RIGHTS, GENERIC_READ, GENERIC_WRITE};
 use windows::Win32::Storage::FileSystem::{
-    CREATE_NEW, CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_CREATION_DISPOSITION, FILE_SHARE_NONE,
-    OPEN_ALWAYS, OPEN_EXISTING,
+    CREATE_ALWAYS, CREATE_NEW, CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_CREATION_DISPOSITION,
+    FILE_FLAG_OVERLAPPED, FILE_SHARE_NONE, FILE_SHARE_READ, OPEN_EXISTING,
 };
 use windows::core::PCWSTR;
 
@@ -37,14 +37,52 @@ fn _exclusive_createfile(
     }
 }
 
+fn _overlapped_createfile(
+    path: &Path,
+    desired_access: GENERIC_ACCESS_RIGHTS,
+    creation_disposition: FILE_CREATION_DISPOSITION,
+) -> Result<File, WindowsError> {
+    let temp_buf = _osstr_to_vec16(path.as_os_str());
+    unsafe {
+        let handle = CreateFileW(
+            PCWSTR::from_raw(temp_buf.as_ptr()),
+            desired_access.0,
+            FILE_SHARE_READ,
+            None,
+            creation_disposition,
+            FILE_FLAG_OVERLAPPED,
+            None,
+        )?;
+        Ok(File::from_raw_handle(handle.0))
+    }
+}
+
+/// Equivalent to [`File::open`].
 pub fn open_exclusively(path: impl AsRef<Path>) -> Result<File, WindowsError> {
     _exclusive_createfile(path.as_ref(), GENERIC_READ, OPEN_EXISTING)
 }
 
+/// Equivalent to [`File::create`].
 pub fn create_exclusively(path: impl AsRef<Path>) -> Result<File, WindowsError> {
-    _exclusive_createfile(path.as_ref(), GENERIC_WRITE, OPEN_ALWAYS)
+    _exclusive_createfile(path.as_ref(), GENERIC_WRITE, CREATE_ALWAYS)
 }
 
+/// Equivalent to [`File::create_new`].
 pub fn create_new_exclusively(path: impl AsRef<Path>) -> Result<File, WindowsError> {
-    _exclusive_createfile(path.as_ref(), GENERIC_WRITE, CREATE_NEW)
+    _exclusive_createfile(path.as_ref(), GENERIC_READ | GENERIC_WRITE, CREATE_NEW)
+}
+
+/// Equivalent to [`File::open`].
+pub fn open_overlapped(path: impl AsRef<Path>) -> Result<File, WindowsError> {
+    _overlapped_createfile(path.as_ref(), GENERIC_READ, OPEN_EXISTING)
+}
+
+/// Equivalent to [`File::create`].
+pub fn create_overlapped(path: impl AsRef<Path>) -> Result<File, WindowsError> {
+    _overlapped_createfile(path.as_ref(), GENERIC_WRITE, CREATE_ALWAYS)
+}
+
+/// Equivalent to [`File::create_new`].
+pub fn create_new_overlapped(path: impl AsRef<Path>) -> Result<File, WindowsError> {
+    _overlapped_createfile(path.as_ref(), GENERIC_READ | GENERIC_WRITE, CREATE_NEW)
 }

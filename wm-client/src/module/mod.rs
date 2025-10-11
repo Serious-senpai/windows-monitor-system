@@ -32,10 +32,10 @@ pub trait Module: Send + Sync {
 
     async fn run(self: Arc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
         debug!("Running before_hook for module {}", self.name());
-        if let Err(e) = self.clone().before_hook().await {
+        self.clone().before_hook().await.map_err(|e| {
             error!("Error in before_hook for module {}: {e}", self.name());
-            return Err(e);
-        }
+            e
+        })?;
 
         info!("Running module {}", self.name());
         while self.stopped().get().is_none() {
@@ -47,14 +47,16 @@ pub trait Module: Send + Sync {
             };
 
             trace!("Running handler for module {}", self.name());
-            self.clone().handle(event).await?;
+            if let Err(e) = self.clone().handle(event).await {
+                error!("Error when handling event in module {}: {e}", self.name());
+            }
         }
 
         debug!("Running after_hook for module {}", self.name());
-        if let Err(e) = self.clone().after_hook().await {
+        self.clone().after_hook().await.map_err(|e| {
             error!("Error in after_hook for module {}: {e}", self.name());
-            return Err(e);
-        }
+            e
+        })?;
 
         info!("Module {} completed successfully", self.name());
         Ok(())
