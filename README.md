@@ -4,4 +4,7 @@
 [![Benchmark](https://github.com/Serious-senpai/windows-monitor-system/actions/workflows/benchmark.yml/badge.svg)](https://github.com/Serious-senpai/windows-monitor-system/actions/workflows/benchmark.yml)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Serious-senpai/windows-monitor-system)
 
-Endpoint Detection and Response (EDR) solution for Windows machine
+Utilizing Event Tracing for Windows (ETW) to leverage thread detection.
+
+## Architecture
+![Architecture](dataflow.drawio.png)
