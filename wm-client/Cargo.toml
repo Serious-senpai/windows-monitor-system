@@ -10,29 +10,30 @@ license = "GPL-2.0-or-later"
 [dependencies]
 async-compression = { workspace = true }
 async-trait = { workspace = true }
-bytes = "^1.10.1"
+bytes = "1.10.1"
 chrono = { workspace = true }
 clap = { workspace = true }
 config-file = { workspace = true }
 ferrisetw = { workspace = true }
 log = { workspace = true }
-lru = "^0.16.1"
-mimalloc = "^0.1.48"
-parking_lot = "^0.12.5"
+lru = "0.16.1"
+mimalloc = "0.1.48"
+openssl = "0.10.75"
+parking_lot = "0.12.5"
 reqwest = { workspace = true }
 rpassword = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sysinfo = "^0.37.2"
+sysinfo = "0.37.2"
 tokio = { workspace = true }
 url = { workspace = true }
 windows = { workspace = true }
-windows-service-detector = "^0.1.0"
-windows-services = "^0.26.1"
+windows-service-detector = "0.1.0"
+windows-services = "0.26.1"
 wm-common = { path = "../wm-common" }
 
 [build-dependencies]
-winresource = "^0.1.23"
+winresource = "0.1.23"
 
 [lints]
 workspace = true

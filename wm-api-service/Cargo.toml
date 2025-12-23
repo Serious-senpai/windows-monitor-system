@@ -13,21 +13,21 @@ async-trait = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
 config-file = { workspace = true }
-futures-util = "^0.3.31"
-http-body-util = "^0.1.3"
-hyper = { version = "^1.7.0", features = ["http1", "http2", "server"] }
-hyper-util = { version = "^0.1.16", features = ["server", "server-auto", "tokio"] }
+futures-util = "0.3.31"
+http-body-util = "0.1.3"
+hyper = { version = "1.7.0", features = ["http1", "http2", "server"] }
+hyper-util = { version = "0.1.16", features = ["server", "server-auto", "tokio"] }
 lapin = { workspace = true }
 log = { workspace = true }
-rustls = "^0.23.31"
-rustls-pemfile = "^2.2.0"
-rustls-webpki = "^0.103.7"
+rustls = "0.23.31"
+rustls-pemfile = "2.2.0"
+rustls-webpki = "0.103.7"
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 tokio-executor-trait = { workspace = true }
-tokio-rustls = "^0.26.4"
-tokio-util = { version = "^0.7.16", features = ["io"] }
+tokio-rustls = "0.26.4"
+tokio-util = { version = "0.7.16", features = ["io"] }
 url = { workspace = true }
 wm-common = { path = "../wm-common" }
 

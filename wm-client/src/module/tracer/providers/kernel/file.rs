@@ -1,4 +1,6 @@
 use std::error::Error;
+use std::fs;
+use std::io::{BufReader, Read};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
@@ -6,6 +8,7 @@ use ferrisetw::parser::{Parser, Pointer};
 use ferrisetw::provider::kernel_providers::KernelProvider;
 use ferrisetw::{EventRecord, GUID, SchemaLocator};
 use lru::LruCache;
+use openssl::hash::{Hasher, MessageDigest};
 use parking_lot::Mutex as BlockingMutex;
 use windows::Win32::System::Diagnostics::Etw::{
     EVENT_TRACE_FLAG_DISK_FILE_IO, EVENT_TRACE_FLAG_FILE_IO_INIT,
@@ -39,6 +42,33 @@ impl FileProviderWrapper {
             )),
         }
     }
+}
+
+fn _sha256_file(path: &str) -> Option<String> {
+    if let Ok(mut hasher) = Hasher::new(MessageDigest::sha256())
+        && let Ok(file) = fs::File::open(path)
+    {
+        let mut reader = BufReader::with_capacity(8096, file); // 8 KB buffer
+        let mut buf = vec![0u8; 8096];
+
+        loop {
+            if let Ok(n) = reader.read(&mut buf) {
+                if n == 0 {
+                    break;
+                }
+
+                hasher.update(&buf[..n]).unwrap();
+            } else {
+                return None;
+            }
+        }
+
+        if let Ok(digest) = hasher.finish() {
+            return Some(digest.iter().map(|b| format!("{:02x}", b)).collect());
+        }
+    }
+
+    None
 }
 
 impl ProviderWrapper for FileProviderWrapper {
@@ -146,6 +176,7 @@ impl ProviderWrapper for FileProviderWrapper {
                     );
                 }
 
+                let sha256 = _sha256_file(&open_path);
                 Ok(Some(Event::new(
                     record,
                     EventData::FileCreate {
@@ -154,6 +185,7 @@ impl ProviderWrapper for FileProviderWrapper {
                         attributes,
                         share_access,
                         open_path,
+                        sha256,
                     },
                 )))
             }
