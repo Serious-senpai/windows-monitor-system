@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+        with:
+          submodules: recursive
 
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -43,6 +45,9 @@ jobs:
           dir inno-setup
 
       - name: Build workspace
+        env:
+          OPENSSL_DIR: ${{ github.workspace }}\extern\OpenSSL\3.4.1
+          OPENSSL_CONF: ${{ github.workspace }}\extern\OpenSSL\3.4.1\ssl\openssl.cnf
         run: cargo build --release --target ${{ matrix.target }} -v
 
       - name: Build agent installer
