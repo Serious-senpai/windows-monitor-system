@@ -82,3 +82,32 @@ jobs:
         with:
           name: build-${{ matrix.target }}
           path: packages
+
+  docker:
+    name: Build Docker images
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Build Docker images
+        run: docker compose build
+
+      - name: List Docker images
+        run: docker image ls
+
+      - name: Export Docker images
+        run: |
+          docker image save -o elasticsearch.tar windows-monitor-elasticsearch
+          docker image save -o kibana.tar windows-monitor-kibana
+
+      - name: Upload Docker images as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-images
+          path: |
+            elasticsearch.tar
+            kibana.tar
