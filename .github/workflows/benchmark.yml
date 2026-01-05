@@ -44,6 +44,9 @@ jobs:
 
       - name: Build workspace
         shell: cmd
+        env:
+          OPENSSL_DIR: ${{ github.workspace }}\extern\OpenSSL\3.4.1
+          OPENSSL_CONF: ${{ github.workspace }}\extern\OpenSSL\3.4.1\ssl\openssl.cnf
         run: |
           if "${{ matrix.profile }}" == "debug" (
             cargo build

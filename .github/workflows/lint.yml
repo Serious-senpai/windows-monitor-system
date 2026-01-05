@@ -48,4 +48,7 @@ jobs:
         run: scripts\setup.bat
 
       - name: Run clippy
+        env:
+          OPENSSL_DIR: ${{ github.workspace }}\extern\OpenSSL\3.4.1
+          OPENSSL_CONF: ${{ github.workspace }}\extern\OpenSSL\3.4.1\ssl\openssl.cnf
         run: cargo clippy --all-features --no-deps -- -D warnings
