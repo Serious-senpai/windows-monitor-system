@@ -70,20 +70,23 @@ impl App {
             .create_channel()
             .await?,
         );
-        rabbitmq
-            .queue_declare(
-                "events",
-                QueueDeclareOptions {
-                    passive: false,
-                    durable: true,
-                    exclusive: false,
-                    auto_delete: false,
-                    nowait: false,
-                },
-                FieldTable::default(),
-            )
-            .await?;
-        info!("Declared events RabbitMQ queue");
+
+        for bucket in 0..self._config.buckets {
+            rabbitmq
+                .queue_declare(
+                    &format!("events-{bucket}"),
+                    QueueDeclareOptions {
+                        passive: false,
+                        durable: true,
+                        exclusive: false,
+                        auto_delete: false,
+                        nowait: false,
+                    },
+                    FieldTable::default(),
+                )
+                .await?;
+            info!("Declared RabbitMQ queue: events-{bucket}");
+        }
 
         Ok(rabbitmq)
     }
@@ -112,6 +115,10 @@ impl App {
         });
 
         this
+    }
+
+    pub fn config(&self) -> &Configuration {
+        &self._config
     }
 
     pub async fn rabbitmq(&self) -> Option<Arc<lapin::Channel>> {

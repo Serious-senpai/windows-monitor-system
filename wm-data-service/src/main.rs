@@ -50,8 +50,8 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     let app = App::new(configuration.clone()).expect("Failed to initialize application");
     match arguments.command {
-        ServiceAction::Start => {
-            app.run().await?;
+        ServiceAction::Start { queue } => {
+            app.run(&queue).await?;
         }
         ServiceAction::UpdateRules => {
             let elastic = app

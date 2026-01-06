@@ -2,6 +2,7 @@ port: 12110
 log_level: Info
 certificate: cert\server.pem
 private_key: cert\server.rsa
+buckets: 4
 
 rabbitmq:
   host: amqp://localhost:5672

@@ -15,5 +15,6 @@ pub struct Configuration {
     pub log_level: LogLevel,
     pub certificate: PathBuf,
     pub private_key: PathBuf,
+    pub buckets: u128,
     pub rabbitmq: RabbitMQ,
 }

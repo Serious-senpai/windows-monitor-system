@@ -23,6 +23,7 @@ pub struct App {
 impl App {
     async fn _initialize_rabbitmq(
         &self,
+        queue: &str,
     ) -> Result<Arc<lapin::Channel>, Box<dyn Error + Send + Sync>> {
         let rabbitmq = Arc::new(
             lapin::Connection::connect(
@@ -36,7 +37,7 @@ impl App {
         );
         rabbitmq
             .queue_declare(
-                "events",
+                queue,
                 QueueDeclareOptions {
                     passive: false,
                     durable: true,
@@ -65,12 +66,6 @@ impl App {
             let _ = this_cloned.elastic().await;
         });
 
-        // Try initializing RabbitMQ connection
-        let this_cloned = this.clone();
-        tokio::spawn(async move {
-            let _ = this_cloned.rabbitmq().await;
-        });
-
         Ok(this)
     }
 
@@ -78,10 +73,10 @@ impl App {
         &self._config
     }
 
-    pub async fn rabbitmq(&self) -> Option<Arc<lapin::Channel>> {
+    pub async fn rabbitmq(&self, queue: &str) -> Option<Arc<lapin::Channel>> {
         self._rabbitmq
             .get_or_try_init(|| async {
-                self._initialize_rabbitmq().await.map_err(|e| {
+                self._initialize_rabbitmq(queue).await.map_err(|e| {
                     error!("Unable to connect to RabbitMQ: {e}");
                     e
                 })
@@ -104,9 +99,9 @@ impl App {
             .cloned()
     }
 
-    pub async fn run(self: &Arc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn run(self: &Arc<Self>, queue: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
         let rabbitmq = tokio::select! {
-            Some(rabbitmq) = self.rabbitmq() => Some(rabbitmq),
+            Some(rabbitmq) = self.rabbitmq(queue) => Some(rabbitmq),
             _ = signal::ctrl_c() => {
                 info!("Received Ctrl+C signal");
                 None
@@ -129,7 +124,7 @@ impl App {
 
             let mut consumer = rabbitmq
                 .basic_consume(
-                    "events",
+                    queue,
                     "data-service-consumer",
                     BasicConsumeOptions::default(),
                     FieldTable::default(),
