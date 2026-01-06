@@ -53,10 +53,16 @@ impl Service for BackupService {
                                 continue;
                             }
 
-                            append_client_ip(&mut buffer, peer.ip());
+                            let hash = append_client_ip(&mut buffer, peer.ip()) % 4;
 
                             if let Err(e) = rabbitmq
-                                .basic_publish("", "events", options, &buffer, properties.clone())
+                                .basic_publish(
+                                    "",
+                                    &format!("events-{hash}"),
+                                    options,
+                                    &buffer,
+                                    properties.clone(),
+                                )
                                 .await
                             {
                                 error!(

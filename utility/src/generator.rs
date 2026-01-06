@@ -45,7 +45,6 @@ impl EventGenerator {
                     attributes: 0x80 + (index as u32 % 256),
                     share_access: index as u32 % 8,
                     open_path: format!("C:\\temp\\file_{index}.txt"),
-                    sha256: Some(format!("{:064x}", index * 1234567890)),
                 },
                 1 => EventData::FileInfo {
                     file_object: 0x2000 + index,

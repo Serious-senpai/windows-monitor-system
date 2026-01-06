@@ -4136,7 +4136,6 @@ dependencies = [
  "log",
  "lru",
  "mimalloc",
- "openssl",
  "parking_lot",
  "reqwest",
  "rpassword",

@@ -1,2 +1,2 @@
 [build]
-rustflags = ["-C", "target-feature=+crt-static", "-D", "warnings"]
+rustflags = ["-C", "target-feature=+crt-static"]

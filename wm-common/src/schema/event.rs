@@ -9,9 +9,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use windows::Wdk::Storage::FileSystem::{FileAllocationInformation, FileEndOfFileInformation};
 use wm_generated::ecs::{
-    ECS, ECS_Destination, ECS_Dll, ECS_Dll_CodeSignature, ECS_Event, ECS_File, ECS_File_Hash,
-    ECS_Host, ECS_Host_Cpu, ECS_Host_Os, ECS_Network, ECS_Process, ECS_Process_Parent,
-    ECS_Process_Thread, ECS_Registry, ECS_Source,
+    ECS, ECS_Destination, ECS_Dll, ECS_Dll_CodeSignature, ECS_Event, ECS_File, ECS_Host,
+    ECS_Host_Cpu, ECS_Host_Os, ECS_Network, ECS_Process, ECS_Process_Parent, ECS_Process_Thread,
+    ECS_Registry, ECS_Source,
 };
 
 use crate::schema::ecs_converter::file_attributes;
@@ -27,7 +27,6 @@ pub enum EventData {
         attributes: u32,
         share_access: u32,
         open_path: String,
-        sha256: Option<String>,
     },
     FileInfo {
         file_object: usize,
@@ -219,7 +218,6 @@ impl CapturedEventRecord {
                 attributes,
                 share_access,
                 open_path,
-                sha256,
                 ..
             } => {
                 event.action = Some(vec!["file-create".to_string()]);
@@ -239,12 +237,6 @@ impl CapturedEventRecord {
                     .file_name()
                     .map(|s| vec![s.to_string_lossy().to_string()]);
                 file.path = Some(vec![open_path.clone()]);
-
-                let mut hash = ECS_File_Hash::new();
-                if let Some(sha256) = sha256 {
-                    hash.sha256 = Some(vec![sha256.clone()]);
-                }
-
                 ecs.file = Some(file);
             }
             EventData::FileInfo {

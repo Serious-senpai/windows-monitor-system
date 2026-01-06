@@ -55,12 +55,12 @@ impl Service for TraceService {
                                     continue;
                                 }
 
-                                append_client_ip(&mut buffer, peer.ip());
+                                let hash = append_client_ip(&mut buffer, peer.ip()) % 4;
 
                                 if let Err(e) = rabbitmq
                                     .basic_publish(
                                         "",
-                                        "events",
+                                        &format!("events-{hash}"),
                                         options,
                                         &buffer,
                                         properties.clone(),

@@ -15,7 +15,10 @@ pub struct Arguments {
 #[clap(rename_all = "kebab_case")]
 pub enum ServiceAction {
     /// Start consuming messages from RabbitMQ, processing and sending them to Elasticsearch
-    Start,
+    Start {
+        /// The RabbitMQ queue to consume messages from
+        queue: String,
+    },
 
     /// Update Elasticsearch detection rules from the remote repository
     UpdateRules,
