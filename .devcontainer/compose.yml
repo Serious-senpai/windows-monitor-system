@@ -53,7 +53,7 @@ services:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
-    command: bash -c "sleep infinity"
+    command: /workspaces/windows-monitor-system/.devcontainer/expose.sh
     container_name: devcontainer
     cpus: 2.0
     volumes:

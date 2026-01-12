@@ -3,7 +3,7 @@ name = "wm-common"
 version = "0.1.0"
 authors = ["Serious-senpai"]
 edition = "2024"
-repository = "https://github.com/Serious-senpai/windows-monitor"
+repository = "https://github.com/Serious-senpai/windows-monitor-system"
 license = "GPL-2.0-or-later"
 
 [dependencies]

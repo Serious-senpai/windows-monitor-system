@@ -6,7 +6,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     git \
     python3 \
-    python-is-python3
+    python-is-python3 \
+    socat
 
 RUN curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh -s -- --default-toolchain=1.92 -y
 

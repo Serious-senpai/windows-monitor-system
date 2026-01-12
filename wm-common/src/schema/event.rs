@@ -208,7 +208,7 @@ impl CapturedEventRecord {
         default_process.thread = Some(thread);
 
         let mut ecs = ECS::new(windows_timestamp(self.event.raw_timestamp));
-        ecs.labels = Some(json!({"application": "windows-monitor"}));
+        ecs.labels = Some(json!({"application": "windows-monitor-system"}));
         ecs.process = Some(default_process);
         ecs.tags = Some(vec![self.event.data.event_type().into()]);
         ecs.host = Some(host);
