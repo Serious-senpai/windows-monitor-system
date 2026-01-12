@@ -10,6 +10,7 @@ use log::{debug, error};
 use wm_common::schema::event::CapturedEventRecord;
 
 use crate::app::App;
+use crate::suspicious::{SuspicionDetector, enrich_ecs_json};
 
 /// Message forwarder transforms messages coming from RabbitMQ, construct
 /// an appropriate HTTP request and send it to Elasticsearch HTTP API.
@@ -17,6 +18,7 @@ pub struct MessageForwarder {
     _app: Weak<App>,
     _body: Vec<u8>,
     _acker: Option<Acker>,
+    _suspicion: SuspicionDetector,
 }
 
 impl MessageForwarder {
@@ -25,6 +27,7 @@ impl MessageForwarder {
             _app: Arc::downgrade(app),
             _body: Vec::with_capacity(app.config().throughput.flush_limit * 3 / 2),
             _acker: None,
+            _suspicion: SuspicionDetector::default(),
         }
     }
 
@@ -81,8 +84,11 @@ impl MessageForwarder {
                             Ok(event) => {
                                 self._body.extend_from_slice(b"{\"create\":{}}\n");
 
+                                let analysis = self._suspicion.observe(ip, &event);
+
                                 let ecs = event.to_ecs(ip);
-                                serde_json::to_writer(&mut self._body, &ecs).unwrap();
+                                let ecs_json = enrich_ecs_json(&ecs, &analysis);
+                                serde_json::to_writer(&mut self._body, &ecs_json).unwrap();
                                 self._body.push(b'\n');
 
                                 self._body.len() >= app.config().throughput.flush_limit

@@ -4,3 +4,4 @@ pub mod configuration;
 pub mod elastic;
 pub mod forwarder;
 pub mod rules;
+pub mod suspicious;
