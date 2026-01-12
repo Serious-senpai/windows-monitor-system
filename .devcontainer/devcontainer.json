@@ -1,0 +1,28 @@
+{
+    "name": "codespaces",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-azuretools.vscode-docker",
+                "rust-lang.rust-analyzer"
+            ],
+            "settings": {
+                "editor.formatOnSave": true,
+                "editor.tabSize": 4,
+                "extensions.ignoreRecommendations": false,
+                "files.insertFinalNewline": true,
+                "git.autorefresh": true,
+                "git.enabled": true,
+                "rust-analyzer.linkedProjects": [
+                    "${containerWorkspaceFolder}/Cargo.toml"
+                ]
+            }
+        }
+    },
+    "features": {
+        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+    },
+    "dockerComposeFile": "compose.yml",
+    "service": "devcontainer",
+    "workspaceFolder": "/workspaces/windows-monitor"
+}

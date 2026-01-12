@@ -1,0 +1,61 @@
+# Reference: https://docs.docker.com/reference/compose-file/
+name: windows-monitor
+
+services:
+  elasticsearch:
+    build:
+      context: ..
+      dockerfile: services/elastic/Dockerfile
+      target: elasticsearch
+    container_name: elasticsearch
+    cpus: 2.0
+    hostname: elasticsearch
+    ports:
+      - 9200:9200
+      - 9300:9300
+    restart: unless-stopped
+
+  kibana:
+    build:
+      context: ..
+      dockerfile: services/elastic/Dockerfile
+      target: kibana
+    container_name: kibana
+    cpus: 2.0
+    depends_on:
+      - elasticsearch
+    hostname: kibana
+    ports:
+      - 5601:5601
+    restart: unless-stopped
+
+  rabbitmq:
+    container_name: rabbitmq
+    cpus: 1.0
+    environment:
+      - RABBITMQ_ERLANG_COOKIE=cluster_cookie
+    healthcheck:
+      test: rabbitmq-diagnostics -q status
+      interval: 5s
+      timeout: 5s
+      retries: 50
+      start_period: 15s
+    hostname: rabbitmq
+    image: rabbitmq:4.0-management-alpine
+    mem_limit: 1gb
+    ports:
+      - 5672:5672
+      - 15672:15672
+    restart: unless-stopped
+    user: rabbitmq
+
+  devcontainer:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    command: bash -c "sleep infinity"
+    container_name: devcontainer
+    cpus: 2.0
+    volumes:
+      - ..:/workspaces/windows-monitor-system
+    working_dir: /workspaces/windows-monitor-system
