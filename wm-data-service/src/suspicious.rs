@@ -465,7 +465,7 @@ fn analyze_record(record: &CapturedEventRecord) -> SuspiciousAnalysis {
             image_file_name,
             command_line,
             ..
-        } if record.event.opcode == 1 => {
+        } if record.event.opcode == 1 || record.event.opcode == 2 => {
             analysis.merge(analyze_process_start(image_file_name, command_line));
         }
         EventData::Registry { key_name, .. } => {
