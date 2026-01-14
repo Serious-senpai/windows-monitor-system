@@ -7,7 +7,7 @@ use lapin::acker::Acker;
 use lapin::message::Delivery;
 use lapin::options::{BasicAckOptions, BasicNackOptions};
 use log::{debug, error};
-use wm_common::schema::event::CapturedEventRecord;
+use wm_common::schema::event::{CapturedEventRecord, EventData};
 
 use crate::app::App;
 
@@ -81,9 +81,23 @@ impl MessageForwarder {
                             Ok(event) => {
                                 self._body.extend_from_slice(b"{\"create\":{}}\n");
 
-                                let ecs = event.to_ecs(ip);
+                                let mut ecs = event.to_ecs(ip);
                                 serde_json::to_writer(&mut self._body, &ecs).unwrap();
                                 self._body.push(b'\n');
+
+                                // Custom detection: create fake alert if conditions are matched
+                                if let EventData::Process {
+                                    image_file_name,
+                                    command_line,
+                                    ..
+                                } = event.event.data
+                                    && image_file_name == "powershell.exe"
+                                    && command_line.contains("-EncodedCommand")
+                                {
+                                    ecs.tags
+                                        .get_or_insert_with(Vec::new)
+                                        .push("wm-alert".to_string());
+                                }
 
                                 self._body.len() >= app.config().throughput.flush_limit
                             }

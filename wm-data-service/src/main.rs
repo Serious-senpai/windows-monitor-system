@@ -8,8 +8,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use clap::Parser;
 use config_file::FromConfigFile;
 use fancy_regex::Regex;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use reqwest::multipart::{Form, Part};
+use serde_json::json;
 use tokio::fs;
 use wm_common::logger::initialize_logger;
 use wm_data_service::app::App;
@@ -49,17 +50,50 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     debug!("Initialized logger");
 
     let app = App::new(configuration.clone()).expect("Failed to initialize application");
+    let elastic = app
+        .elastic()
+        .await
+        .expect("Unable to initialize Elasticsearch client");
+    let kibana = elastic.kibana();
+
     match arguments.command {
         ServiceAction::Start { queue } => {
+            match kibana
+                .post("/api/alerting/rule/wm-alerts")
+                // .header("kbn-xsrf", "true")
+                .body(
+                    json!({
+                        "author": "Windows Monitor",
+                        "description": "Windows Monitor detection alerts created by data service",
+                        "enabled": true,
+                        "from": "now-10s",
+                        "index": ["events.windows-monitor-ecs"],
+                        "name": "Windows Monitor Alerts (data service)",
+                        "risk_score": 50,
+                        "schedule": { "interval": "1s" },
+                        "tags": ["OS: Windows"],
+                        "type": "eql",
+                        "query": "tags: \"wm-alert\"",
+                    })
+                    .to_string(),
+                )
+                .send()
+                .await
+            {
+                Ok(response) => {
+                    if !response.status().is_success() {
+                        let text = response.text().await;
+                        warn!("Unable to create custom detection rule: {text:?}");
+                    }
+                }
+                Err(e) => {
+                    warn!("Unable to create custom detection rule: {e}");
+                }
+            }
+
             app.run(&queue).await?;
         }
         ServiceAction::UpdateRules => {
-            let elastic = app
-                .elastic()
-                .await
-                .expect("Unable to initialize Elasticsearch client");
-            let kibana = elastic.kibana();
-
             let rules = rules::fetch_remote_rules().await?;
             let mut buf = vec![];
             for rule in rules {
