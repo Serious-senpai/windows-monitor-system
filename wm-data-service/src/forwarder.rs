@@ -82,8 +82,6 @@ impl MessageForwarder {
                                 self._body.extend_from_slice(b"{\"create\":{}}\n");
 
                                 let mut ecs = event.to_ecs(ip);
-                                serde_json::to_writer(&mut self._body, &ecs).unwrap();
-                                self._body.push(b'\n');
 
                                 // Custom detection: create fake alert if conditions are matched
                                 if let EventData::Process {
@@ -99,6 +97,8 @@ impl MessageForwarder {
                                         .push("wm-alert".to_string());
                                 }
 
+                                serde_json::to_writer(&mut self._body, &ecs).unwrap();
+                                self._body.push(b'\n');
                                 self._body.len() >= app.config().throughput.flush_limit
                             }
                             Err(e) => {

@@ -59,21 +59,29 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     match arguments.command {
         ServiceAction::Start { queue } => {
             match kibana
-                .post("/api/alerting/rule/wm-alerts")
+                .post("/api/detection_engine/rules")
                 .header("kbn-xsrf", "true")
                 .body(
                     json!({
-                        "author": "Windows Monitor",
-                        "description": "Windows Monitor detection alerts created by data service",
-                        "enabled": true,
-                        "from": "now-10s",
-                        "index": ["events.windows-monitor-ecs"],
                         "name": "Windows Monitor Alerts (data service)",
-                        "risk_score": 50,
-                        "schedule": { "interval": "1s" },
-                        "tags": ["OS: Windows"],
+                        "tags": ["OS: Windows", "Custom"],
+                        "index": ["events.windows-monitor-ecs"],
                         "type": "eql",
-                        "query": "tags: \"wm-alert\"",
+                        "query": "any where tags == \"wm-alert\"",
+                        "rule_id": "wm-alerts",
+                        "language": "eql",
+                        "severity": "low",
+                        "risk_score": 50,
+                        "description": "Custom detection algorithm by data service",
+                        "required_fields": [
+                            {
+                                "name": "tags",
+                                "type": "keyword"
+                            }
+                        ],
+                        "from": "now-10s",
+                        "to": "now",
+                        "interval": "1s"
                     })
                     .to_string(),
                 )
