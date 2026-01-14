@@ -60,7 +60,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         ServiceAction::Start { queue } => {
             match kibana
                 .post("/api/alerting/rule/wm-alerts")
-                // .header("kbn-xsrf", "true")
+                .header("kbn-xsrf", "true")
                 .body(
                     json!({
                         "author": "Windows Monitor",
